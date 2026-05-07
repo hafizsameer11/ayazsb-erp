@@ -12,6 +12,7 @@ if [ ! -L public/storage ]; then
 fi
 
 php artisan optimize:clear || true
+php artisan package:discover --ansi || true
 
 if [ "${APP_ENV}" = "production" ]; then
     echo "Running database migrations..."

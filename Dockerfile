@@ -10,6 +10,7 @@ RUN composer install \
     --no-interaction \
     --no-progress \
     --prefer-dist \
+    --no-scripts \
     --optimize-autoloader
 
 RUN composer dump-autoload --no-dev --optimize
