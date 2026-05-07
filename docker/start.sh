@@ -3,6 +3,8 @@ set -e
 
 cd /var/www/html
 
+rm -f public/hot
+
 mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views bootstrap/cache
 chown -R www-data:www-data storage bootstrap/cache
 chmod -R ug+rwx storage bootstrap/cache

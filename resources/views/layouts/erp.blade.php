@@ -4,12 +4,12 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>@yield('title', 'Accounts & Finance') — {{ config('app.name', 'ERP') }}</title>
-    @vite(['resources/css/app.css', 'resources/js/app.js'])
+    @include('partials.vite-assets')
 </head>
 <body class="erp-body min-h-screen text-[13px] text-slate-900 antialiased">
     <header class="erp-titlebar border-b border-slate-600 bg-gradient-to-b from-slate-700 to-slate-800 px-3 py-1.5 text-white shadow-sm">
         <div class="flex items-center justify-between gap-4">
-            <div class="font-semibold tracking-tight">{{ config('app.name', 'Laravel') }}</div>
+            <div class="font-semibold tracking-tight">{{ config('app.name', 'ERP') }}</div>
             <div class="flex items-center gap-2 text-[11px] text-slate-300">
                 <span class="hidden sm:block">Enterprise Resource Planning</span>
                 <span class="hidden rounded border border-slate-500 bg-slate-800 px-1.5 py-0.5 sm:inline-block">
