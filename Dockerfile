@@ -13,7 +13,7 @@ RUN composer install \
     --no-scripts \
     --optimize-autoloader
 
-RUN composer dump-autoload --no-dev --optimize
+RUN composer dump-autoload --no-dev --optimize --no-scripts
 
 FROM node:20-alpine AS frontend_build
 
