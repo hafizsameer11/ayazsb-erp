@@ -13,7 +13,8 @@ return new class extends Migration
     {
         Schema::create('inventory_transaction_lines', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('inventory_transaction_id')->constrained('inventory_transactions')->cascadeOnDelete();
+            $table->unsignedBigInteger('inventory_transaction_id');
+            $table->index('inventory_transaction_id');
             $table->foreignId('item_id')->nullable()->constrained('items')->nullOnDelete();
             $table->string('description')->nullable();
             $table->decimal('qty', 18, 4)->default(0);
