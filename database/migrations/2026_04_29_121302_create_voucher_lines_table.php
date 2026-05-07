@@ -13,7 +13,8 @@ return new class extends Migration
     {
         Schema::create('voucher_lines', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('voucher_id')->constrained('vouchers')->cascadeOnDelete();
+            $table->unsignedBigInteger('voucher_id');
+            $table->index('voucher_id');
             $table->foreignId('account_id')->nullable()->constrained('accounts')->nullOnDelete();
             $table->foreignId('item_id')->nullable()->constrained('items')->nullOnDelete();
             $table->string('description')->nullable();
