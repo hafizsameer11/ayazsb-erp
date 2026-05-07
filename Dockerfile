@@ -3,6 +3,8 @@ FROM composer:2 AS composer_deps
 WORKDIR /app
 
 COPY composer.json composer.lock ./
+COPY . .
+
 RUN composer install \
     --no-dev \
     --no-interaction \
@@ -10,7 +12,6 @@ RUN composer install \
     --prefer-dist \
     --optimize-autoloader
 
-COPY . .
 RUN composer dump-autoload --no-dev --optimize
 
 FROM node:20-alpine AS frontend_build
