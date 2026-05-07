@@ -14,9 +14,9 @@
 @endphp
 
 @if ($cssFile)
-    <link rel="stylesheet" href="{{ asset('build/' . $cssFile) }}">
+    <link rel="stylesheet" href="{{ (bool) env('FORCE_HTTPS', false) ? secure_asset('build/' . $cssFile) : asset('build/' . $cssFile) }}">
 @endif
 
 @if ($jsFile)
-    <script type="module" src="{{ asset('build/' . $jsFile) }}"></script>
+    <script type="module" src="{{ (bool) env('FORCE_HTTPS', false) ? secure_asset('build/' . $jsFile) : asset('build/' . $jsFile) }}"></script>
 @endif
