@@ -90,6 +90,7 @@
             Main menu
         </a>
     </footer>
+    @include('partials.account-tom-select-cdn')
     @stack('scripts')
 </body>
 </html>

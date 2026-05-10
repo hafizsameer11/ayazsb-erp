@@ -14,10 +14,15 @@
                 @csrf
                 <label class="erp-field"><span class="erp-label">Voucher date</span><input class="erp-input" type="date" name="voucher_date" value="{{ now()->format('Y-m-d') }}" required></label>
                 <label class="erp-field"><span class="erp-label">Financial year</span><select class="erp-input" name="financial_year_id">@foreach(($financialYears ?? []) as $fy)<option value="{{ $fy->id }}">{{ $fy->year_code }}</option>@endforeach</select></label>
-                <label class="erp-field"><span class="erp-label">Account</span><select class="erp-input" name="account_id">@foreach(($accounts ?? []) as $acc)<option value="{{ $acc->id }}">{{ $acc->code }} - {{ $acc->name }}</option>@endforeach</select></label>
                 <label class="erp-field"><span class="erp-label">Debit</span><input class="erp-input" type="number" step="0.01" name="debit" value="0"></label>
                 <label class="erp-field"><span class="erp-label">Credit</span><input class="erp-input" type="number" step="0.01" name="credit" value="0"></label>
-                <div class="flex items-end"><button class="rounded border border-slate-600 bg-slate-200 px-3 py-1 text-xs font-semibold hover:bg-white">Add Opening</button></div>
+                <div class="flex items-end"><button type="submit" class="rounded border border-slate-600 bg-slate-200 px-3 py-1 text-xs font-semibold hover:bg-white">Add Opening</button></div>
+                <label class="erp-field md:col-span-6">
+                    <span class="erp-label">Account</span>
+                    <select class="js-account-search" name="account_id" autocomplete="off" required>
+                        @include('erp.accounts.partials.account-select-options')
+                    </select>
+                </label>
                 <label class="erp-field md:col-span-6"><span class="erp-label">Narration</span><input class="erp-input" type="text" name="narration" value="Opening balance"></label>
             </form>
             <div class="overflow-x-auto border border-slate-400">

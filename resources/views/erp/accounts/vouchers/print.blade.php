@@ -20,7 +20,7 @@
             <tbody>
                 @foreach($voucher->lines as $line)
                     <tr>
-                        <td class="border border-slate-300 px-2 py-1">{{ $line->account?->code }}</td>
+                        <td class="border border-slate-300 px-2 py-1 font-mono text-[12px]">{{ $line->account?->code }}@if($line->account) <span class="font-sans text-slate-700">— {{ $line->account->name }}</span>@endif</td>
                         <td class="border border-slate-300 px-2 py-1">{{ $line->description }}</td>
                         <td class="border border-slate-300 px-2 py-1 text-right">{{ number_format((float)$line->debit, 2) }}</td>
                         <td class="border border-slate-300 px-2 py-1 text-right">{{ number_format((float)$line->credit, 2) }}</td>

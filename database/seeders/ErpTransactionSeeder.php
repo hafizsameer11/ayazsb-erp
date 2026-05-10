@@ -21,7 +21,7 @@ class ErpTransactionSeeder extends Seeder
         $year = FinancialYear::query()->first();
         $party = Party::query()->first();
         $item = Item::query()->first();
-        $account = Account::query()->first();
+        $account = Account::query()->postable()->orderBy('code')->first();
 
         if (! $user || ! $year || ! $party || ! $item || ! $account) {
             return;

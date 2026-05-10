@@ -20,7 +20,7 @@ class ErpWorkflowTest extends TestCase
     {
         $admin = \App\Models\User::query()->where('email', 'admin@erp.local')->firstOrFail();
         $fy = \App\Models\FinancialYear::query()->firstOrFail();
-        $account = \App\Models\Account::query()->firstOrFail();
+        $account = \App\Models\Account::query()->postable()->firstOrFail();
 
         $response = $this->actingAs($admin)->post(route('erp.accounts.vouchers.store', ['voucherType' => 'jv']), [
             'voucher_date' => now()->toDateString(),

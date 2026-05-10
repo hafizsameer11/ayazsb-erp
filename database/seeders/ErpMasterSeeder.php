@@ -24,15 +24,24 @@ class ErpMasterSeeder extends Seeder
         );
 
         $accounts = [
-            ['level' => 'head', 'code' => '1000', 'name' => 'Assets'],
-            ['level' => 'head', 'code' => '2000', 'name' => 'Liabilities'],
-            ['level' => 'head', 'code' => '4000', 'name' => 'Revenue'],
-            ['level' => 'head', 'code' => '5000', 'name' => 'Expenses'],
+            ['level' => 'head', 'code' => '01', 'name' => 'Assets'],
+            ['level' => 'head', 'code' => '02', 'name' => 'Liabilities'],
+            ['level' => 'head', 'code' => '03', 'name' => 'Revenue'],
+            ['level' => 'head', 'code' => '04', 'name' => 'Expenses'],
         ];
 
         foreach ($accounts as $account) {
-            Account::query()->updateOrCreate(['code' => $account['code']], $account);
+            Account::query()->updateOrCreate(
+                ['level' => 'head', 'name' => $account['name']],
+                [
+                    'code' => $account['code'],
+                    'parent_id' => null,
+                    'is_active' => true,
+                ]
+            );
         }
+
+        $this->seedDemoPostableAccounts();
 
         $parties = [
             ['code' => 'P001', 'name' => 'ATF Weaving', 'type' => 'both'],
@@ -59,6 +68,76 @@ class ErpMasterSeeder extends Seeder
         foreach ($items as $item) {
             Item::query()->updateOrCreate(['code' => $item['code']], $item);
         }
+    }
+
+    /**
+     * Sample control → ledger → sub-ledger chains for vouchers and openings (posting uses leaf codes only).
+     */
+    protected function seedDemoPostableAccounts(): void
+    {
+        $this->seedAccountChain(
+            '01',
+            '01001',
+            'Current assets',
+            '010010001',
+            'Bank balances',
+            '01001000100001',
+            'Main bank — operating'
+        );
+        $this->seedAccountChain(
+            '02',
+            '02001',
+            'Current liabilities',
+            '020010001',
+            'Payables',
+            '02001000100001',
+            'Trade creditors'
+        );
+    }
+
+    protected function seedAccountChain(
+        string $headCode,
+        string $controlCode,
+        string $controlName,
+        string $ledgerCode,
+        string $ledgerName,
+        string $subLedgerCode,
+        string $subLedgerName,
+    ): void {
+        $head = Account::query()->where('level', 'head')->where('code', $headCode)->first();
+        if (! $head) {
+            return;
+        }
+
+        $control = Account::query()->updateOrCreate(
+            ['code' => $controlCode],
+            [
+                'level' => 'control',
+                'name' => $controlName,
+                'parent_id' => $head->id,
+                'is_active' => true,
+            ]
+        );
+
+        $ledger = Account::query()->updateOrCreate(
+            ['code' => $ledgerCode],
+            [
+                'level' => 'ledger',
+                'name' => $ledgerName,
+                'parent_id' => $control->id,
+                'is_active' => true,
+            ]
+        );
+
+        Account::query()->updateOrCreate(
+            ['code' => $subLedgerCode],
+            [
+                'level' => 'sub_ledger',
+                'name' => $subLedgerName,
+                'parent_id' => $ledger->id,
+                'is_active' => true,
+            ]
+        );
     }
 }
 
