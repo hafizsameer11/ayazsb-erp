@@ -15,6 +15,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class AccountsFinanceController extends Controller
@@ -195,6 +196,7 @@ class AccountsFinanceController extends Controller
     {
         $permissionPrefix = "accounts.vouchers.{$voucherType}";
         $this->ensurePermission("{$permissionPrefix}.create");
+        $this->ensurePermission("{$permissionPrefix}.post");
 
         $data = $request->validate([
             'voucher_date' => ['required', 'date'],
@@ -214,27 +216,14 @@ class AccountsFinanceController extends Controller
             'lines.*.amount' => ['nullable', 'numeric', 'min:0'],
             'lines.*.tag' => ['nullable', 'string', 'max:80'],
         ]);
-        $amountOnlyVoucherTypes = ['cp', 'cr', 'bpv', 'brv'];
-
-        $voucher = DB::transaction(function () use ($data, $voucherType, $numberService, $amountOnlyVoucherTypes) {
+        $voucher = DB::transaction(function () use ($data, $voucherType, $numberService) {
             $year = FinancialYear::query()->findOrFail($data['financial_year_id']);
             $voucherNumber = $numberService->next('accounts', strtoupper($voucherType), $year->year_code);
-
-            $voucher = Voucher::query()->create([
-                'module' => 'accounts',
-                'voucher_type' => strtoupper($voucherType),
-                'voucher_number' => $voucherNumber,
-                'voucher_date' => $data['voucher_date'],
-                'financial_year_id' => $data['financial_year_id'],
-                'remarks' => $data['remarks'] ?? null,
-                'status' => 'draft',
-                'created_by' => Auth::id(),
-            ]);
 
             $debit = 0.0;
             $credit = 0.0;
             $amount = 0.0;
-            $lineCount = 0;
+            $preparedLines = [];
 
             foreach ($data['lines'] as $line) {
                 if (
@@ -274,10 +263,7 @@ class AccountsFinanceController extends Controller
                 $debit += $lineDebit;
                 $credit += $lineCredit;
                 $amount += $lineAmount > 0 ? $lineAmount : max($lineDebit, $lineCredit);
-                $lineCount++;
-
-                VoucherLine::query()->create([
-                    'voucher_id' => $voucher->id,
+                $preparedLines[] = [
                     'account_id' => $line['account_id'] ?? null,
                     'description' => $line['description'] ?? null,
                     'debit' => $lineDebit,
@@ -286,26 +272,52 @@ class AccountsFinanceController extends Controller
                     'rate' => (float) ($line['rate'] ?? 0),
                     'amount' => $lineAmount > 0 ? $lineAmount : max($lineDebit, $lineCredit),
                     'tag' => $line['tag'] ?? null,
+                ];
+            }
+
+            if (count($preparedLines) === 0) {
+                throw ValidationException::withMessages([
+                    'lines' => 'At least one valid voucher line is required.',
+                ]);
+            }
+            if ($debit <= 0 || $credit <= 0) {
+                throw ValidationException::withMessages([
+                    'lines' => 'Voucher requires both debit and credit values.',
+                ]);
+            }
+            if (abs($debit - $credit) > 0.009) {
+                throw ValidationException::withMessages([
+                    'lines' => 'Debit and credit must be equal before posting.',
                 ]);
             }
 
-            if ($lineCount === 0) {
-                abort(422, 'At least one valid voucher line is required.');
-            }
-            if (! in_array(strtolower($voucherType), $amountOnlyVoucherTypes, true) && $debit <= 0 && $credit <= 0) {
-                abort(422, 'Voucher requires debit/credit values.');
-            }
-
-            $voucher->update([
+            $voucher = Voucher::query()->create([
+                'module' => 'accounts',
+                'voucher_type' => strtoupper($voucherType),
+                'voucher_number' => $voucherNumber,
+                'voucher_date' => $data['voucher_date'],
+                'financial_year_id' => $data['financial_year_id'],
+                'remarks' => $data['remarks'] ?? null,
+                'status' => 'posted',
                 'total_debit' => $debit,
                 'total_credit' => $credit,
                 'total_amount' => $amount,
+                'created_by' => Auth::id(),
+                'posted_by' => Auth::id(),
+                'posted_at' => now(),
             ]);
+
+            foreach ($preparedLines as $line) {
+                VoucherLine::query()->create([
+                    'voucher_id' => $voucher->id,
+                    ...$line,
+                ]);
+            }
 
             return $voucher;
         });
 
-        return back()->with('status', "Voucher {$voucher->voucher_number} saved.");
+        return back()->with('status', "Voucher {$voucher->voucher_number} posted.");
     }
 
     public function postVoucher(Request $request, Voucher $voucher, PostingService $postingService): RedirectResponse

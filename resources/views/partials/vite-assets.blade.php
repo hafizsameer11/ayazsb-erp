@@ -14,7 +14,7 @@
 @endphp
 
 {{-- Tom Select base styles first; app.css (below) adds ERP overrides --}}
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.6.2/dist/css/tom-select.default.min.css" crossorigin="anonymous">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.6.0/dist/css/tom-select.default.min.css" crossorigin="anonymous">
 
 @if ($cssFile)
     <link rel="stylesheet" href="{{ (bool) env('FORCE_HTTPS', false) ? secure_asset('build/' . $cssFile) : asset('build/' . $cssFile) }}">

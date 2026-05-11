@@ -20,7 +20,7 @@
     @endif
     <div class="flex items-end gap-4 lg:col-span-2">
         <label class="inline-flex items-center gap-1 text-[11px]"><input type="checkbox" name="feed_ind" class="h-3.5 w-3.5"> Feed ind</label>
-        <label class="inline-flex items-center gap-1 text-[11px]"><input type="checkbox" name="post_ind" class="h-3.5 w-3.5"> Post ind</label>
+        <span class="rounded border border-green-500 bg-green-50 px-2 py-1 text-[11px] font-semibold uppercase text-green-700">Post on submit</span>
     </div>
     @if ($showCashSummary)
         <div class="grid grid-cols-3 gap-2 border border-slate-300 bg-white p-2 text-[11px] md:col-span-2 lg:col-span-4 lg:grid-cols-3">

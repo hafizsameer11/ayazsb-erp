@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Str;
 
 class Account extends Model
 {
@@ -16,6 +17,11 @@ class Account extends Model
         'parent_id',
         'is_active',
     ];
+
+    public function setNameAttribute(?string $value): void
+    {
+        $this->attributes['name'] = $value === null ? null : Str::upper(trim($value));
+    }
 
     public function parent(): BelongsTo
     {

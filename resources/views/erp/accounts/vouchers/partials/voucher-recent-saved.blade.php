@@ -1,12 +1,11 @@
 @php
-    $prefix = $permissionPrefix ?? 'accounts.vouchers.jv';
     $list = $recentVouchers ?? collect();
 @endphp
 <div class="border-t border-slate-300 p-3">
-    <div class="mb-2 text-[11px] font-semibold uppercase text-slate-600">Saved vouchers (this screen)</div>
+    <div class="mb-2 text-[11px] font-semibold uppercase text-slate-600">Posted vouchers (this screen)</div>
     @if ($list->isEmpty())
         <p class="border border-slate-300 bg-[#f9f9f9] px-2 py-3 text-[12px] text-slate-600">
-            No vouchers for this type yet. Use <strong>Save voucher</strong> above; the last 20 saved documents will list here.
+            No posted vouchers for this type yet. Use <strong>Post voucher</strong> above; the last 20 documents will list here.
         </p>
     @else
         <div class="overflow-x-auto border border-slate-400">
@@ -39,22 +38,14 @@
                                 {{ number_format($diff, 2) }}
                             </td>
                             <td class="border border-slate-300 px-1 py-1">
-                                <div class="flex flex-wrap gap-1">
-                                    @allowed($prefix . '.print')
-                                        <a
-                                            class="rounded border border-slate-500 bg-white px-2 py-0.5 text-[11px] hover:bg-sky-50"
-                                            href="{{ route('erp.accounts.vouchers.print', $v) }}"
-                                            target="_blank"
-                                            rel="noopener"
-                                        >Print</a>
-                                    @endallowed
-                                    @if ($v->status === 'draft' && auth()->user()?->hasPermission($prefix . '.post'))
-                                        <form class="inline" method="post" action="{{ route('erp.accounts.vouchers.post', $v) }}" onsubmit="return confirm('Post this voucher? Debit and credit must match.');">
-                                            @csrf
-                                            <button type="submit" class="rounded border border-slate-600 bg-slate-200 px-2 py-0.5 text-[11px] font-semibold hover:bg-white">Post</button>
-                                        </form>
-                                    @endif
-                                </div>
+                                @if (auth()->user()?->hasPermission(($permissionPrefix ?? 'accounts.vouchers.jv') . '.print'))
+                                    <a
+                                        class="rounded border border-slate-500 bg-white px-2 py-0.5 text-[11px] hover:bg-sky-50"
+                                        href="{{ route('erp.accounts.vouchers.print', $v) }}"
+                                        target="_blank"
+                                        rel="noopener"
+                                    >Print</a>
+                                @endif
                             </td>
                         </tr>
                     @endforeach
@@ -63,6 +54,6 @@
         </div>
     @endif
     <p class="mt-2 text-[11px] text-slate-600">
-        <strong>Draft (Save):</strong> debit and credit do not need to match. <strong>Post:</strong> system requires debit = credit before posting to the ledger.
+        Vouchers are posted immediately. Debit and credit must be equal before the system accepts the document.
     </p>
 </div>

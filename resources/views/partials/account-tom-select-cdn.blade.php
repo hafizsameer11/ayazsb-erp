@@ -1,8 +1,9 @@
-<script src="https://cdn.jsdelivr.net/npm/tom-select@2.6.2/dist/js/tom-select.complete.min.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.6.0/dist/js/tom-select.complete.min.js" crossorigin="anonymous"></script>
 @verbatim
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         if (typeof TomSelect === 'undefined') {
+            console.warn('Tom Select CDN failed to load.');
             return;
         }
 
@@ -38,10 +39,13 @@
 
             var ts = new TomSelect(selectEl, {
                 allowEmptyOption: true,
+                copyClassesToDropdown: true,
                 create: false,
-                maxOptions: 5000,
                 dropdownParent: 'body',
-                placeholder: 'Select account',
+                maxOptions: 5000,
+                placeholder: 'Search account',
+                plugins: ['dropdown_input'],
+                searchField: ['text'],
                 sortField: { field: 'text', direction: 'asc' },
                 onChange: function (value) {
                     syncAccountDesc(selectEl, value);
