@@ -28,8 +28,25 @@ class ErpWorkflowTest extends TestCase
         ]);
         $admin->roles()->sync([$superAdminRole->id]);
 
-        $assetHead = \App\Models\Account::query()->where('level', 'head')->where('code', '01')->firstOrFail();
-        $liabilityHead = \App\Models\Account::query()->where('level', 'head')->where('code', '02')->firstOrFail();
+        \App\Models\FinancialYear::query()->create([
+            'year_code' => '2026',
+            'start_date' => '2026-01-01',
+            'end_date' => '2026-12-31',
+            'is_closed' => false,
+        ]);
+
+        $assetHead = \App\Models\Account::query()->create([
+            'level' => 'head',
+            'code' => '01',
+            'name' => 'Assets',
+            'is_active' => true,
+        ]);
+        $liabilityHead = \App\Models\Account::query()->create([
+            'level' => 'head',
+            'code' => '02',
+            'name' => 'Liabilities',
+            'is_active' => true,
+        ]);
 
         $customerAccount = $this->createAccountChain($assetHead, '01001', 'Test customer control', '010010001', 'Test customers', '01001000100001', 'Test customer account');
         $supplierAccount = $this->createAccountChain($liabilityHead, '02001', 'Test supplier control', '020010001', 'Test suppliers', '02001000100001', 'Test supplier account');

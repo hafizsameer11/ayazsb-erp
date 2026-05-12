@@ -4,11 +4,9 @@ namespace Database\Seeders;
 
 use App\Models\Permission;
 use App\Models\Role;
-use App\Models\User;
 use App\Support\PermissionRegistry;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\Hash;
 
 class RbacSeeder extends Seeder
 {
@@ -74,19 +72,5 @@ class RbacSeeder extends Seeder
             ->all();
         $viewerRole->permissions()->sync($viewerPermissions);
 
-        $adminEmail = env('ERP_ADMIN_EMAIL');
-        $adminPassword = env('ERP_ADMIN_PASSWORD');
-
-        if ($adminEmail && $adminPassword) {
-            $adminUser = User::query()->updateOrCreate(
-                ['email' => $adminEmail],
-                [
-                    'name' => env('ERP_ADMIN_NAME', 'System Administrator'),
-                    'username' => env('ERP_ADMIN_USERNAME'),
-                    'password' => Hash::make($adminPassword),
-                ]
-            );
-            $adminUser->roles()->syncWithoutDetaching([$superAdminRole->id]);
-        }
     }
 }
