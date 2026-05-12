@@ -29,17 +29,17 @@
                         <option value="">Select contract</option>
                         @foreach($singleContracts as $contract)
                             <option value="{{ $contract->id }}" @selected((string) old('yarn_contract_id') === (string) $contract->id)>
-                                {{ $contract->contract_no }} — {{ $contract->party?->name }} — {{ $contract->item?->name }}
+                                {{ $contract->contract_no }} — {{ $contract->account?->name }} — {{ $contract->item?->name }}
                             </option>
                         @endforeach
                     </select>
                 </label>
                 <label class="erp-field md:col-span-2">
-                    <span class="erp-label">Party</span>
-                    <select class="erp-input" name="party_id">
-                        <option value="">Use contract party</option>
-                        @foreach(($parties ?? []) as $party)
-                            <option value="{{ $party->id }}" @selected((string) old('party_id') === (string) $party->id)>{{ $party->code }} — {{ $party->name }}</option>
+                    <span class="erp-label">Account</span>
+                    <select class="erp-input" name="account_id">
+                        <option value="">Use contract account</option>
+                        @foreach(($accountParties ?? []) as $account)
+                            <option value="{{ $account->id }}" @selected((string) old('account_id') === (string) $account->id)>{{ $account->code }} — {{ $account->name }}</option>
                         @endforeach
                     </select>
                 </label>
@@ -50,7 +50,7 @@
                         <option value="">Select from contract</option>
                         @foreach(($contracts ?? []) as $contract)
                             <option value="{{ $contract->id }}" @selected((string) old('from_yarn_contract_id') === (string) $contract->id)>
-                                {{ $contract->contract_no }} — {{ $contract->party?->name }}
+                                {{ $contract->contract_no }} — {{ $contract->account?->name }}
                             </option>
                         @endforeach
                     </select>
@@ -61,18 +61,18 @@
                         <option value="">Select to contract</option>
                         @foreach(($contracts ?? []) as $contract)
                             <option value="{{ $contract->id }}" @selected((string) old('to_yarn_contract_id') === (string) $contract->id)>
-                                {{ $contract->contract_no }} — {{ $contract->party?->name }}
+                                {{ $contract->contract_no }} — {{ $contract->account?->name }}
                             </option>
                         @endforeach
                     </select>
                 </label>
             @else
                 <label class="erp-field md:col-span-2">
-                    <span class="erp-label">Party</span>
-                    <select class="erp-input" name="party_id">
-                        <option value="">Select party</option>
-                        @foreach(($parties ?? []) as $party)
-                            <option value="{{ $party->id }}" @selected((string) old('party_id') === (string) $party->id)>{{ $party->code }} — {{ $party->name }}</option>
+                    <span class="erp-label">Account</span>
+                    <select class="erp-input" name="account_id">
+                        <option value="">Select account</option>
+                        @foreach(($accountParties ?? []) as $account)
+                            <option value="{{ $account->id }}" @selected((string) old('account_id') === (string) $account->id)>{{ $account->code }} — {{ $account->name }}</option>
                         @endforeach
                     </select>
                 </label>

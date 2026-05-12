@@ -16,6 +16,5 @@ class DatabaseSeeder extends Seeder
     {
         $this->call(RbacSeeder::class);
         $this->call(ErpMasterSeeder::class);
-        $this->call(ErpTransactionSeeder::class);
     }
 }

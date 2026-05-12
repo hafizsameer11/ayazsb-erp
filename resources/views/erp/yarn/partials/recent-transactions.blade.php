@@ -8,7 +8,7 @@
                 <tr class="bg-[#d8d8d8]">
                     <th class="border border-slate-400 px-1 py-1">No</th>
                     <th class="border border-slate-400 px-1 py-1">Date</th>
-                    <th class="border border-slate-400 px-1 py-1">Party</th>
+                    <th class="border border-slate-400 px-1 py-1">Account</th>
                     <th class="border border-slate-400 px-1 py-1">Contract</th>
                     <th class="border border-slate-400 px-1 py-1">Status</th>
                     <th class="border border-slate-400 px-1 py-1 text-right">Qty</th>
@@ -21,7 +21,12 @@
                     <tr>
                         <td class="border border-slate-300 px-1 py-1 font-mono">{{ $transaction->trans_no }}</td>
                         <td class="border border-slate-300 px-1 py-1">{{ $transaction->trans_date }}</td>
-                        <td class="border border-slate-300 px-1 py-1">{{ $transaction->party?->name ?? '-' }}</td>
+                        <td class="border border-slate-300 px-1 py-1">
+                            {{ $transaction->account?->name
+                                ?? $transaction->yarnContract?->account?->name
+                                ?? $transaction->fromYarnContract?->account?->name
+                                ?? '-' }}
+                        </td>
                         <td class="border border-slate-300 px-1 py-1">
                             {{ $transaction->yarnContract?->contract_no
                                 ?? trim(($transaction->fromYarnContract?->contract_no ?? '') . ' -> ' . ($transaction->toYarnContract?->contract_no ?? ''), ' ->')

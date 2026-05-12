@@ -14,6 +14,95 @@ class ErpWorkflowTest extends TestCase
     {
         parent::setUp();
         $this->seed(DatabaseSeeder::class);
+        $this->createTestFixtures();
+    }
+
+    private function createTestFixtures(): void
+    {
+        $superAdminRole = \App\Models\Role::query()->where('slug', 'super-admin')->firstOrFail();
+        $admin = \App\Models\User::factory()->create([
+            'name' => 'Test Admin',
+            'username' => 'test-admin',
+            'email' => 'admin@erp.local',
+            'password' => 'admin123',
+        ]);
+        $admin->roles()->sync([$superAdminRole->id]);
+
+        $assetHead = \App\Models\Account::query()->where('level', 'head')->where('code', '01')->firstOrFail();
+        $liabilityHead = \App\Models\Account::query()->where('level', 'head')->where('code', '02')->firstOrFail();
+
+        $customerAccount = $this->createAccountChain($assetHead, '01001', 'Test customer control', '010010001', 'Test customers', '01001000100001', 'Test customer account');
+        $supplierAccount = $this->createAccountChain($liabilityHead, '02001', 'Test supplier control', '020010001', 'Test suppliers', '02001000100001', 'Test supplier account');
+
+        $item = \App\Models\Item::query()->create([
+            'code' => 'TY001',
+            'name' => 'Test yarn',
+            'module' => 'yarn',
+            'unit' => 'BAGS',
+        ]);
+
+        $godown = \App\Models\Godown::query()->create([
+            'code' => 'TG001',
+            'name' => 'Test yarn godown',
+            'module' => 'yarn',
+        ]);
+
+        \App\Models\YarnContract::query()->create([
+            'contract_no' => 'TEST-PURCHASE-001',
+            'direction' => 'purchase',
+            'contract_type' => 'BY RATE',
+            'contract_date' => now()->toDateString(),
+            'account_id' => $supplierAccount->id,
+            'item_id' => $item->id,
+            'godown_id' => $godown->id,
+            'unit' => 'LBS',
+            'quantity' => 100,
+            'weight_lbs' => 10000,
+            'rate' => 500,
+            'status' => 'open',
+        ]);
+
+        \App\Models\YarnContract::query()->create([
+            'contract_no' => 'TEST-SALE-001',
+            'direction' => 'sale',
+            'contract_type' => 'EMANI',
+            'contract_date' => now()->toDateString(),
+            'account_id' => $customerAccount->id,
+            'item_id' => $item->id,
+            'godown_id' => $godown->id,
+            'unit' => 'LBS',
+            'quantity' => 60,
+            'weight_lbs' => 6000,
+            'rate' => 520,
+            'status' => 'open',
+        ]);
+    }
+
+    private function createAccountChain(\App\Models\Account $head, string $controlCode, string $controlName, string $ledgerCode, string $ledgerName, string $subLedgerCode, string $subLedgerName): \App\Models\Account
+    {
+        $control = \App\Models\Account::query()->create([
+            'level' => 'control',
+            'code' => $controlCode,
+            'name' => $controlName,
+            'parent_id' => $head->id,
+            'is_active' => true,
+        ]);
+
+        $ledger = \App\Models\Account::query()->create([
+            'level' => 'ledger',
+            'code' => $ledgerCode,
+            'name' => $ledgerName,
+            'parent_id' => $control->id,
+            'is_active' => true,
+        ]);
+
+        return \App\Models\Account::query()->create([
+            'level' => 'sub_ledger',
+            'code' => $subLedgerCode,
+            'name' => $subLedgerName,
+            'parent_id' => $ledger->id,
+            'is_active' => true,
+        ]);
     }
 
     public function test_super_admin_can_create_voucher(): void
@@ -140,7 +229,7 @@ class ErpWorkflowTest extends TestCase
     public function test_yarn_contract_can_be_created_from_contract_screen(): void
     {
         $admin = \App\Models\User::query()->where('email', 'admin@erp.local')->firstOrFail();
-        $party = \App\Models\Party::query()->firstOrFail();
+        $account = \App\Models\Account::query()->postable()->firstOrFail();
         $item = \App\Models\Item::query()->where('module', 'yarn')->firstOrFail();
         $godown = \App\Models\Godown::query()->where('module', 'yarn')->firstOrFail();
 
@@ -148,7 +237,7 @@ class ErpWorkflowTest extends TestCase
             'contract_no' => 'TEST-CNT-001',
             'contract_date' => now()->toDateString(),
             'contract_type' => 'BY RATE',
-            'party_id' => $party->id,
+            'account_id' => $account->id,
             'item_id' => $item->id,
             'godown_id' => $godown->id,
             'quantity' => 20,
@@ -160,7 +249,7 @@ class ErpWorkflowTest extends TestCase
         $this->assertDatabaseHas('yarn_contracts', [
             'contract_no' => 'TEST-CNT-001',
             'direction' => 'purchase',
-            'party_id' => $party->id,
+            'account_id' => $account->id,
         ]);
 
         $this->actingAs($admin)

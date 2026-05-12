@@ -32,11 +32,11 @@
             </label>
 
             <label class="erp-field md:col-span-2">
-                <span class="erp-label">{{ $direction === 'sale' ? 'Customer / Contractee' : 'Supplier / Party' }}</span>
-                <select class="erp-input" name="party_id" required>
-                    <option value="">Select party</option>
-                    @foreach(($parties ?? []) as $party)
-                        <option value="{{ $party->id }}" @selected((string) old('party_id') === (string) $party->id)>{{ $party->code }} — {{ $party->name }}</option>
+                <span class="erp-label">{{ $direction === 'sale' ? 'Customer / Contractee account' : 'Supplier / Party account' }}</span>
+                <select class="erp-input" name="account_id" required>
+                    <option value="">Select account</option>
+                    @foreach(($accountParties ?? []) as $account)
+                        <option value="{{ $account->id }}" @selected((string) old('account_id') === (string) $account->id)>{{ $account->code }} — {{ $account->name }}</option>
                     @endforeach
                 </select>
             </label>
@@ -83,7 +83,7 @@
                         <th class="border border-slate-400 px-1 py-1">Contract</th>
                         <th class="border border-slate-400 px-1 py-1">Date</th>
                         <th class="border border-slate-400 px-1 py-1">Type</th>
-                        <th class="border border-slate-400 px-1 py-1">Party</th>
+                        <th class="border border-slate-400 px-1 py-1">Account</th>
                         <th class="border border-slate-400 px-1 py-1">Yarn</th>
                         <th class="border border-slate-400 px-1 py-1 text-right">Weight</th>
                         <th class="border border-slate-400 px-1 py-1 text-right">Rate</th>
@@ -96,7 +96,7 @@
                             <td class="border border-slate-300 px-1 py-1 font-mono">{{ $contract->contract_no }}</td>
                             <td class="border border-slate-300 px-1 py-1">{{ $contract->contract_date?->format('Y-m-d') }}</td>
                             <td class="border border-slate-300 px-1 py-1">{{ $contract->contract_type }}</td>
-                            <td class="border border-slate-300 px-1 py-1">{{ $contract->party?->name }}</td>
+                            <td class="border border-slate-300 px-1 py-1">{{ $contract->account?->code }} — {{ $contract->account?->name }}</td>
                             <td class="border border-slate-300 px-1 py-1">{{ $contract->item?->code }} — {{ $contract->item?->name }}</td>
                             <td class="border border-slate-300 px-1 py-1 text-right">{{ number_format((float) $contract->weight_lbs, 2) }}</td>
                             <td class="border border-slate-300 px-1 py-1 text-right">{{ number_format((float) $contract->rate, 2) }}</td>

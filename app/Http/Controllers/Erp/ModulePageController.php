@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\InventoryTransaction;
 use App\Models\InventoryTransactionLine;
 use App\Models\Godown;
+use App\Models\Account;
 use App\Models\Item;
 use App\Models\Party;
 use App\Models\YarnContract;
@@ -132,10 +133,13 @@ class ModulePageController extends Controller
 
         $contracts = $module === 'yarn'
             ? YarnContract::query()
-                ->with(['party', 'item', 'godown'])
+                ->with(['account', 'party', 'item', 'godown'])
                 ->orderByDesc('contract_date')
                 ->orderBy('contract_no')
                 ->get()
+            : collect();
+        $accountParties = $module === 'yarn'
+            ? Account::query()->postable()->orderBy('code')->get()
             : collect();
 
         $viewData = [
@@ -152,6 +156,7 @@ class ModulePageController extends Controller
             ],
             'items' => Item::query()->whereIn('module', [$module, 'shared'])->orderBy('code')->get(),
             'parties' => Party::query()->orderBy('name')->get(),
+            'accountParties' => $accountParties,
             'godowns' => Godown::query()->whereIn('module', [$module, 'shared'])->orderBy('code')->get(),
             'contracts' => $contracts,
             'purchaseContracts' => $contracts->where('direction', 'purchase')->values(),
@@ -160,7 +165,7 @@ class ModulePageController extends Controller
                 ? InventoryTransaction::query()
                     ->where('module', 'yarn')
                     ->where('screen_slug', 'issuance')
-                    ->with('yarnContract')
+                    ->with('yarnContract.account')
                     ->latest()
                     ->limit(50)
                     ->get()
@@ -168,7 +173,7 @@ class ModulePageController extends Controller
             'recentTransactions' => InventoryTransaction::query()
                 ->where('module', $module)
                 ->where('screen_slug', $screenMeta['slug'])
-                ->with(['party', 'yarnContract', 'fromYarnContract', 'toYarnContract'])
+                ->with(['account', 'party', 'yarnContract.account', 'fromYarnContract.account', 'toYarnContract.account'])
                 ->latest()
                 ->limit(20)
                 ->get(),
@@ -196,6 +201,9 @@ class ModulePageController extends Controller
         $data = $request->validate([
             'trans_date' => ['required', 'date'],
             'party_id' => ['nullable', 'integer', 'exists:parties,id'],
+            'account_id' => ['nullable', 'integer', Rule::exists('accounts', 'id')->where(fn ($q) => $q->where('level', 'sub_ledger')->where('is_active', true))],
+            'from_account_id' => ['nullable', 'integer', Rule::exists('accounts', 'id')->where(fn ($q) => $q->where('level', 'sub_ledger')->where('is_active', true))],
+            'to_account_id' => ['nullable', 'integer', Rule::exists('accounts', 'id')->where(fn ($q) => $q->where('level', 'sub_ledger')->where('is_active', true))],
             'yarn_contract_id' => ['nullable', 'integer', 'exists:yarn_contracts,id'],
             'from_yarn_contract_id' => ['nullable', 'integer', 'exists:yarn_contracts,id'],
             'to_yarn_contract_id' => ['nullable', 'integer', 'exists:yarn_contracts,id'],
@@ -239,6 +247,9 @@ class ModulePageController extends Controller
                 'trans_no' => $transNo,
                 'trans_date' => $data['trans_date'],
                 'party_id' => $data['party_id'] ?? $primaryContract?->party_id ?? $fromContract?->party_id,
+                'account_id' => $data['account_id'] ?? $primaryContract?->account_id ?? $fromContract?->account_id,
+                'from_account_id' => $data['from_account_id'] ?? $fromContract?->account_id,
+                'to_account_id' => $data['to_account_id'] ?? (isset($data['to_yarn_contract_id']) ? YarnContract::query()->find($data['to_yarn_contract_id'])?->account_id : null),
                 'yarn_contract_id' => $data['yarn_contract_id'] ?? null,
                 'from_yarn_contract_id' => $data['from_yarn_contract_id'] ?? null,
                 'to_yarn_contract_id' => $data['to_yarn_contract_id'] ?? null,
@@ -297,7 +308,8 @@ class ModulePageController extends Controller
             'contract_no' => ['required', 'string', 'max:80'],
             'contract_date' => ['required', 'date'],
             'contract_type' => ['required', 'string', Rule::in(['BY RATE', 'EMANI'])],
-            'party_id' => ['required', 'integer', 'exists:parties,id'],
+            'account_id' => ['required', 'integer', Rule::exists('accounts', 'id')->where(fn ($q) => $q->where('level', 'sub_ledger')->where('is_active', true))],
+            'party_id' => ['nullable', 'integer', 'exists:parties,id'],
             'item_id' => ['nullable', 'integer', 'exists:items,id'],
             'godown_id' => ['nullable', 'integer', 'exists:godowns,id'],
             'yarn_tag' => ['nullable', 'string', 'max:80'],
@@ -313,13 +325,15 @@ class ModulePageController extends Controller
             'remarks' => ['nullable', 'string', 'max:255'],
             'meta' => ['nullable', 'array'],
         ]);
+        $fallbackPartyId = $data['party_id'] ?? Party::query()->value('id');
 
         $contract = YarnContract::query()->updateOrCreate(
             ['contract_no' => $data['contract_no'], 'direction' => $direction],
             [
                 'contract_type' => $data['contract_type'],
                 'contract_date' => $data['contract_date'],
-                'party_id' => $data['party_id'],
+                'party_id' => $fallbackPartyId,
+                'account_id' => $data['account_id'],
                 'item_id' => $data['item_id'] ?? null,
                 'godown_id' => $data['godown_id'] ?? null,
                 'yarn_tag' => $data['yarn_tag'] ?? null,
@@ -444,7 +458,7 @@ class ModulePageController extends Controller
                 ['label' => ucfirst($module), 'route' => "erp.{$module}.dashboard"],
                 ['label' => 'Print'],
             ],
-            'transaction' => $transaction->load('lines.item', 'party', 'yarnContract.party', 'fromYarnContract.party', 'toYarnContract.party', 'fromGodown', 'toGodown'),
+            'transaction' => $transaction->load('lines.item', 'account', 'fromAccount', 'toAccount', 'party', 'yarnContract.account', 'fromYarnContract.account', 'toYarnContract.account', 'fromGodown', 'toGodown'),
         ]);
     }
 

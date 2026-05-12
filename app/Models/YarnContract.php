@@ -15,6 +15,7 @@ class YarnContract extends Model
         'contract_type',
         'contract_date',
         'party_id',
+        'account_id',
         'item_id',
         'godown_id',
         'yarn_tag',
@@ -40,6 +41,11 @@ class YarnContract extends Model
     public function party(): BelongsTo
     {
         return $this->belongsTo(Party::class);
+    }
+
+    public function account(): BelongsTo
+    {
+        return $this->belongsTo(Account::class);
     }
 
     public function item(): BelongsTo

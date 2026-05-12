@@ -14,6 +14,9 @@ class InventoryTransaction extends Model
         'trans_no',
         'trans_date',
         'party_id',
+        'account_id',
+        'from_account_id',
+        'to_account_id',
         'yarn_contract_id',
         'from_yarn_contract_id',
         'to_yarn_contract_id',
@@ -40,6 +43,21 @@ class InventoryTransaction extends Model
     public function party(): BelongsTo
     {
         return $this->belongsTo(Party::class);
+    }
+
+    public function account(): BelongsTo
+    {
+        return $this->belongsTo(Account::class);
+    }
+
+    public function fromAccount(): BelongsTo
+    {
+        return $this->belongsTo(Account::class, 'from_account_id');
+    }
+
+    public function toAccount(): BelongsTo
+    {
+        return $this->belongsTo(Account::class, 'to_account_id');
     }
 
     public function yarnContract(): BelongsTo

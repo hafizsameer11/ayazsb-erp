@@ -80,7 +80,7 @@
             </ul>
             <div class="mt-4 border border-slate-400 bg-white p-2 text-center text-[11px] text-slate-600">
                 <div class="mx-auto mb-1 flex h-12 w-12 items-center justify-center rounded-full bg-slate-300 text-slate-600">User</div>
-                <div class="font-medium text-slate-800">Demo User</div>
+                <div class="font-medium text-slate-800">{{ auth()->user()?->name ?? 'User' }}</div>
             </div>
         </aside>
     </div>

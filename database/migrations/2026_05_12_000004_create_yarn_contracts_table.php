@@ -14,7 +14,7 @@ return new class extends Migration
             $table->string('direction');
             $table->string('contract_type')->default('BY RATE');
             $table->date('contract_date');
-            $table->foreignId('party_id')->constrained('parties')->restrictOnDelete();
+            $table->foreignId('party_id')->nullable()->constrained('parties')->nullOnDelete();
             $table->foreignId('item_id')->nullable()->constrained('items')->nullOnDelete();
             $table->foreignId('godown_id')->nullable()->constrained('godowns')->nullOnDelete();
             $table->string('yarn_tag')->nullable();

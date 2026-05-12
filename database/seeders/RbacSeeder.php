@@ -74,24 +74,19 @@ class RbacSeeder extends Seeder
             ->all();
         $viewerRole->permissions()->sync($viewerPermissions);
 
-        $adminUser = User::query()->updateOrCreate(
-            ['email' => 'admin@erp.local'],
-            [
-                'name' => 'ERP Admin',
-                'username' => 'admin',
-                'password' => Hash::make('admin123'),
-            ]
-        );
-        $adminUser->roles()->syncWithoutDetaching([$superAdminRole->id]);
+        $adminEmail = env('ERP_ADMIN_EMAIL');
+        $adminPassword = env('ERP_ADMIN_PASSWORD');
 
-        $operatorUser = User::query()->updateOrCreate(
-            ['email' => 'operator@erp.local'],
-            [
-                'name' => 'ERP Operator',
-                'username' => 'operator',
-                'password' => Hash::make('operator123'),
-            ]
-        );
-        $operatorUser->roles()->syncWithoutDetaching([$operatorRole->id]);
+        if ($adminEmail && $adminPassword) {
+            $adminUser = User::query()->updateOrCreate(
+                ['email' => $adminEmail],
+                [
+                    'name' => env('ERP_ADMIN_NAME', 'System Administrator'),
+                    'username' => env('ERP_ADMIN_USERNAME'),
+                    'password' => Hash::make($adminPassword),
+                ]
+            );
+            $adminUser->roles()->syncWithoutDetaching([$superAdminRole->id]);
+        }
     }
 }

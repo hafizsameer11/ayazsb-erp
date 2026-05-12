@@ -16,6 +16,19 @@ class RbacAccessTest extends TestCase
     {
         parent::setUp();
         $this->seed(RbacSeeder::class);
+        $this->createAdminUser();
+    }
+
+    private function createAdminUser(): void
+    {
+        $superAdminRole = Role::query()->where('slug', 'super-admin')->firstOrFail();
+        $admin = User::factory()->create([
+            'name' => 'Test Admin',
+            'username' => 'admin',
+            'email' => 'admin@erp.local',
+            'password' => 'admin123',
+        ]);
+        $admin->roles()->sync([$superAdminRole->id]);
     }
 
     public function test_guest_is_redirected_to_login_for_erp_routes(): void
