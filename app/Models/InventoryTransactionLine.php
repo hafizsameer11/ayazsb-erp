@@ -16,6 +16,11 @@ class InventoryTransactionLine extends Model
         'weight_lbs',
         'rate',
         'amount',
+        'meta',
+    ];
+
+    protected $casts = [
+        'meta' => 'array',
     ];
 
     public function transaction(): BelongsTo

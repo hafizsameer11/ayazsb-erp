@@ -14,13 +14,22 @@ class InventoryTransaction extends Model
         'trans_no',
         'trans_date',
         'party_id',
+        'yarn_contract_id',
+        'from_yarn_contract_id',
+        'to_yarn_contract_id',
+        'source_transaction_id',
         'from_godown_id',
         'to_godown_id',
         'status',
         'remarks',
+        'meta',
         'total_qty',
         'total_amount',
         'created_by',
+    ];
+
+    protected $casts = [
+        'meta' => 'array',
     ];
 
     public function lines(): HasMany
@@ -31,5 +40,35 @@ class InventoryTransaction extends Model
     public function party(): BelongsTo
     {
         return $this->belongsTo(Party::class);
+    }
+
+    public function yarnContract(): BelongsTo
+    {
+        return $this->belongsTo(YarnContract::class);
+    }
+
+    public function fromYarnContract(): BelongsTo
+    {
+        return $this->belongsTo(YarnContract::class, 'from_yarn_contract_id');
+    }
+
+    public function toYarnContract(): BelongsTo
+    {
+        return $this->belongsTo(YarnContract::class, 'to_yarn_contract_id');
+    }
+
+    public function sourceTransaction(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'source_transaction_id');
+    }
+
+    public function fromGodown(): BelongsTo
+    {
+        return $this->belongsTo(Godown::class, 'from_godown_id');
+    }
+
+    public function toGodown(): BelongsTo
+    {
+        return $this->belongsTo(Godown::class, 'to_godown_id');
     }
 }

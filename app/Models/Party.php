@@ -21,4 +21,9 @@ class Party extends Model
     {
         return $this->hasMany(Voucher::class);
     }
+
+    public function yarnContracts(): HasMany
+    {
+        return $this->hasMany(YarnContract::class);
+    }
 }

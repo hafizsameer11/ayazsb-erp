@@ -11,6 +11,7 @@ use App\Models\Party;
 use App\Models\User;
 use App\Models\Voucher;
 use App\Models\VoucherLine;
+use App\Models\YarnContract;
 use Illuminate\Database\Seeder;
 
 class ErpTransactionSeeder extends Seeder
@@ -22,6 +23,7 @@ class ErpTransactionSeeder extends Seeder
         $party = Party::query()->first();
         $item = Item::query()->first();
         $account = Account::query()->postable()->orderBy('code')->first();
+        $contract = YarnContract::query()->where('direction', 'purchase')->first();
 
         if (! $user || ! $year || ! $party || ! $item || ! $account) {
             return;
@@ -54,7 +56,9 @@ class ErpTransactionSeeder extends Seeder
             ['module' => 'yarn', 'screen_slug' => 'issuance', 'trans_no' => 'YAR202600001'],
             [
                 'trans_date' => now()->toDateString(),
-                'party_id' => $party->id,
+                'party_id' => $contract?->party_id ?? $party->id,
+                'yarn_contract_id' => $contract?->id,
+                'from_godown_id' => $contract?->godown_id,
                 'status' => 'draft',
                 'total_qty' => 10,
                 'total_amount' => 5000,
@@ -68,8 +72,10 @@ class ErpTransactionSeeder extends Seeder
                 'description' => 'Seed line',
                 'qty' => 10,
                 'unit' => $item->unit,
+                'weight_lbs' => 10,
                 'rate' => 500,
                 'amount' => 5000,
+                'meta' => ['yarn_type' => 'WARP'],
             ]
         );
     }

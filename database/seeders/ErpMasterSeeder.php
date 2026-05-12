@@ -7,6 +7,7 @@ use App\Models\FinancialYear;
 use App\Models\Godown;
 use App\Models\Item;
 use App\Models\Party;
+use App\Models\YarnContract;
 use Illuminate\Database\Seeder;
 
 class ErpMasterSeeder extends Seeder
@@ -68,6 +69,8 @@ class ErpMasterSeeder extends Seeder
         foreach ($items as $item) {
             Item::query()->updateOrCreate(['code' => $item['code']], $item);
         }
+
+        $this->seedYarnContracts();
     }
 
     /**
@@ -136,6 +139,59 @@ class ErpMasterSeeder extends Seeder
                 'name' => $subLedgerName,
                 'parent_id' => $ledger->id,
                 'is_active' => true,
+            ]
+        );
+    }
+
+    protected function seedYarnContracts(): void
+    {
+        $supplier = Party::query()->where('code', 'P002')->first();
+        $customer = Party::query()->where('code', 'P003')->first();
+        $item = Item::query()->where('code', 'Y001')->first();
+        $godown = Godown::query()->where('code', 'G002')->first();
+
+        if (! $supplier || ! $customer || ! $item || ! $godown) {
+            return;
+        }
+
+        YarnContract::query()->updateOrCreate(
+            ['contract_no' => 'YC-P-0001', 'direction' => 'purchase'],
+            [
+                'contract_type' => 'BY RATE',
+                'contract_date' => now()->toDateString(),
+                'party_id' => $supplier->id,
+                'item_id' => $item->id,
+                'godown_id' => $godown->id,
+                'yarn_tag' => 'FRESH',
+                'condition' => 'GOOD',
+                'unit' => 'LBS',
+                'quantity' => 100,
+                'weight_lbs' => 10000,
+                'packing_size' => 100,
+                'packing_weight' => 100,
+                'rate' => 500,
+                'sale_rate' => 525,
+                'status' => 'open',
+            ]
+        );
+
+        YarnContract::query()->updateOrCreate(
+            ['contract_no' => 'YC-S-0001', 'direction' => 'sale'],
+            [
+                'contract_type' => 'EMANI',
+                'contract_date' => now()->toDateString(),
+                'party_id' => $customer->id,
+                'item_id' => $item->id,
+                'godown_id' => $godown->id,
+                'yarn_tag' => 'EMANI',
+                'condition' => 'GOOD',
+                'unit' => 'LBS',
+                'quantity' => 60,
+                'weight_lbs' => 6000,
+                'packing_size' => 100,
+                'packing_weight' => 100,
+                'rate' => 520,
+                'status' => 'open',
             ]
         );
     }

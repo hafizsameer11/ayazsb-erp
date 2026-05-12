@@ -24,4 +24,9 @@ class Godown extends Model
     {
         return $this->hasMany(InventoryTransaction::class, 'to_godown_id');
     }
+
+    public function yarnContracts(): HasMany
+    {
+        return $this->hasMany(YarnContract::class);
+    }
 }

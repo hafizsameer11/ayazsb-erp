@@ -26,4 +26,9 @@ class Item extends Model
     {
         return $this->hasMany(InventoryTransactionLine::class);
     }
+
+    public function yarnContracts(): HasMany
+    {
+        return $this->hasMany(YarnContract::class);
+    }
 }
