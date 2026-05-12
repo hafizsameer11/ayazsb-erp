@@ -27,7 +27,7 @@ class RbacAccessTest extends TestCase
     public function test_admin_can_login_and_access_admin_area(): void
     {
         $response = $this->post(route('login.store'), [
-            'email' => 'admin@erp.local',
+            'login' => 'admin@erp.local',
             'password' => 'admin123',
         ]);
 
@@ -36,6 +36,17 @@ class RbacAccessTest extends TestCase
         $this->get(route('erp.admin.roles'))
             ->assertOk()
             ->assertSee('Roles Matrix');
+    }
+
+    public function test_admin_can_login_with_username(): void
+    {
+        $response = $this->post(route('login.store'), [
+            'login' => 'admin',
+            'password' => 'admin123',
+        ]);
+
+        $response->assertRedirect(route('erp.accounts.dashboard'));
+        $this->assertAuthenticated();
     }
 
     public function test_viewer_is_forbidden_from_admin_routes(): void

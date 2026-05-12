@@ -14,12 +14,12 @@
         <form method="post" action="{{ route('login.store') }}" class="space-y-3">
             @csrf
             <label class="erp-field">
-                <span class="erp-label">Email</span>
-                <input type="email" name="email" value="{{ old('email') }}" class="erp-input" required autofocus>
+                <span class="erp-label">Email or username</span>
+                <input type="text" name="login" value="{{ old('login') }}" class="erp-input" required autofocus autocomplete="username">
             </label>
             <label class="erp-field">
                 <span class="erp-label">Password</span>
-                <input type="password" name="password" class="erp-input" required>
+                <input type="password" name="password" class="erp-input" required autocomplete="current-password">
             </label>
             <label class="inline-flex items-center gap-2 text-xs text-slate-700">
                 <input type="checkbox" name="remember" value="1" class="h-4 w-4">
@@ -34,9 +34,6 @@
                 Sign in
             </button>
         </form>
-        <div class="mt-4 border-t border-slate-400 pt-2 text-xs text-slate-600">
-            Default admin: <span class="font-mono">admin@erp.local / admin123</span>
-        </div>
     </div>
 </body>
 </html>

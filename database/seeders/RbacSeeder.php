@@ -78,6 +78,7 @@ class RbacSeeder extends Seeder
             ['email' => 'admin@erp.local'],
             [
                 'name' => 'ERP Admin',
+                'username' => 'admin',
                 'password' => Hash::make('admin123'),
             ]
         );
@@ -87,6 +88,7 @@ class RbacSeeder extends Seeder
             ['email' => 'operator@erp.local'],
             [
                 'name' => 'ERP Operator',
+                'username' => 'operator',
                 'password' => Hash::make('operator123'),
             ]
         );

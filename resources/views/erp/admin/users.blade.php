@@ -20,6 +20,7 @@
                     <thead>
                         <tr class="bg-[#d8d8d8]">
                             <th class="border border-slate-400 px-2 py-1">User</th>
+                            <th class="border border-slate-400 px-2 py-1">Username</th>
                             <th class="border border-slate-400 px-2 py-1">Email</th>
                             <th class="border border-slate-400 px-2 py-1">Roles</th>
                             <th class="w-24 border border-slate-400 px-2 py-1"></th>
@@ -29,6 +30,7 @@
                         @foreach ($users as $rowUser)
                             <tr>
                                 <td class="border border-slate-300 px-2 py-1">{{ $rowUser->name }}</td>
+                                <td class="border border-slate-300 px-2 py-1 font-mono">{{ $rowUser->username ?? '-' }}</td>
                                 <td class="border border-slate-300 px-2 py-1 font-mono">{{ $rowUser->email }}</td>
                                 <td class="border border-slate-300 px-2 py-1">
                                     @allowed('admin.users.edit')
