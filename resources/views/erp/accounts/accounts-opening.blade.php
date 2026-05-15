@@ -23,36 +23,13 @@
                 </label>
                 <label class="erp-field md:col-span-6"><span class="erp-label">Narration</span><input class="erp-input" type="text" name="narration" value="Opening balance"></label>
             </form>
-            <div class="overflow-x-auto border border-slate-400">
-                <table class="w-full min-w-[720px] border-collapse text-left text-[12px]">
-                    <thead>
-                        <tr class="bg-[#d8d8d8]">
-                            <th class="border border-slate-400 px-1 py-1 font-semibold">V.ID</th>
-                            <th class="border border-slate-400 px-1 py-1 font-semibold">V date</th>
-                            <th class="border border-slate-400 px-1 py-1 font-semibold">Fin year</th>
-                            <th class="border border-slate-400 px-1 py-1 font-semibold">Account code</th>
-                            <th class="border border-slate-400 px-1 py-1 font-semibold">Narration</th>
-                            <th class="border border-slate-400 px-1 py-1 font-semibold">Debit</th>
-                            <th class="border border-slate-400 px-1 py-1 font-semibold">Credit</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @forelse(($openings ?? []) as $opening)
-                            <tr>
-                                <td class="border border-slate-300 px-1 py-1">{{ $opening->id }}</td>
-                                <td class="border border-slate-300 px-1 py-1">{{ \App\Support\ErpDate::display($opening->voucher_date) }}</td>
-                                <td class="border border-slate-300 px-1 py-1">{{ $opening->financialYear?->year_code }}</td>
-                                <td class="border border-slate-300 px-1 py-1">{{ $opening->account?->code }}</td>
-                                <td class="border border-slate-300 px-1 py-1">{{ $opening->narration }}</td>
-                                <td class="border border-slate-300 px-1 py-1 text-right">{{ number_format((float)$opening->debit, 2) }}</td>
-                                <td class="border border-slate-300 px-1 py-1 text-right">{{ number_format((float)$opening->credit, 2) }}</td>
-                            </tr>
-                        @empty
-                            <tr><td colspan="7" class="border border-slate-300 px-2 py-2 text-slate-500">No opening entries.</td></tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
+            @include('erp.partials.records-history', [
+                'historyType' => 'opening',
+                'historyTitle' => 'Saved opening entries',
+                'historyEmpty' => 'No opening entries yet. Add an opening above; entries will list here grouped by voucher date.',
+                'recordsHistory' => $recordsHistory ?? null,
+                'recordsHistoryGrouped' => $recordsHistoryGrouped ?? collect(),
+            ])
             <div class="mt-3 grid gap-2 border border-slate-400 bg-[#f0f0f0] p-2 md:grid-cols-2">
                 <label class="flex flex-col gap-0.5 text-[11px] font-medium text-slate-700">
                     Account name

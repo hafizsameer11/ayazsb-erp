@@ -15,6 +15,7 @@ use App\Models\YarnContract;
 use App\Services\PostingService;
 use App\Services\VoucherNumberService;
 use App\Services\YarnContractBalanceService;
+use App\Support\RecordHistory;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -174,14 +175,30 @@ class ModulePageController extends Controller
                     ->limit(50)
                     ->get()
                 : collect(),
-            'recentTransactions' => InventoryTransaction::query()
-                ->where('module', $module)
-                ->where('screen_slug', $screenMeta['slug'])
-                ->with(['account', 'party', 'yarnContract.account', 'fromYarnContract.account', 'toYarnContract.account'])
-                ->latest()
-                ->limit(20)
-                ->get(),
+            ...RecordHistory::build(
+                $request,
+                InventoryTransaction::query()
+                    ->where('module', $module)
+                    ->where('screen_slug', $screenMeta['slug'])
+                    ->with(['account', 'party', 'yarnContract.account', 'fromYarnContract.account', 'toYarnContract.account'])
+                    ->orderByDesc('trans_date')
+                    ->orderByDesc('id'),
+                'trans_date'
+            ),
         ];
+
+        if ($module === 'yarn' && in_array($screenMeta['slug'], ['purchase-contract', 'sale-contract'], true)) {
+            $contractDirection = $screenMeta['slug'] === 'sale-contract' ? 'sale' : 'purchase';
+            $viewData = array_merge($viewData, RecordHistory::build(
+                $request,
+                YarnContract::query()
+                    ->where('direction', $contractDirection)
+                    ->with(['account', 'item', 'godown'])
+                    ->orderByDesc('contract_date')
+                    ->orderByDesc('id'),
+                'contract_date'
+            ));
+        }
 
         if ($module === 'yarn' && isset(self::YARN_DEDICATED_SCREENS[$screenMeta['slug']])) {
             return view('erp.yarn.' . self::YARN_DEDICATED_SCREENS[$screenMeta['slug']], $viewData);
@@ -234,7 +251,7 @@ class ModulePageController extends Controller
             $this->validateYarnTransaction($screenMeta['slug'], $data, $balanceService);
         }
 
-        $postOnSubmit = ($data['submit_action'] ?? null) === 'post';
+        $postOnSubmit = in_array($data['submit_action'] ?? 'post', ['post', 'save'], true);
         if ($postOnSubmit) {
             abort_unless($this->allowed("{$module}.{$screenMeta['slug']}.post"), 403);
         }

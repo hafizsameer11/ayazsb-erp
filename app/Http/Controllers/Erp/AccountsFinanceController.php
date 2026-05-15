@@ -12,6 +12,7 @@ use App\Models\Voucher;
 use App\Models\VoucherLine;
 use App\Services\PostingService;
 use App\Services\VoucherNumberService;
+use App\Support\RecordHistory;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -55,15 +56,20 @@ class AccountsFinanceController extends Controller
         ]);
     }
 
-    public function accountsOpening(): View
+    public function accountsOpening(Request $request): View
     {
         $this->ensurePermission('accounts.opening.view');
+
+        $openingQuery = AccountOpening::query()
+            ->with(['account', 'financialYear'])
+            ->orderByDesc('voucher_date')
+            ->orderByDesc('id');
 
         return view('erp.accounts.accounts-opening', [
             ...$this->withBreadcrumbs('Accounts Opening', 'erp.accounts.opening', 'accounts.opening'),
             'accounts' => Account::query()->postable()->orderBy('code')->get(),
             'financialYears' => FinancialYear::query()->orderByDesc('start_date')->get(),
-            'openings' => AccountOpening::query()->with('account')->latest()->limit(50)->get(),
+            ...RecordHistory::build($request, $openingQuery, 'voucher_date'),
         ]);
     }
 
@@ -499,6 +505,12 @@ class AccountsFinanceController extends Controller
     {
         $this->ensurePermission("accounts.vouchers.{$slug}.view");
 
+        $voucherQuery = Voucher::query()
+            ->where('module', 'accounts')
+            ->where('voucher_type', $voucherCode)
+            ->orderByDesc('voucher_date')
+            ->orderByDesc('id');
+
         return view("erp.accounts.vouchers." . match ($slug) {
             'jv' => 'journal',
             'cp' => 'cash-payment',
@@ -513,12 +525,7 @@ class AccountsFinanceController extends Controller
             'formId' => $formId,
             'accounts' => Account::query()->postable()->orderBy('code')->get(),
             'financialYears' => FinancialYear::query()->orderByDesc('start_date')->get(),
-            'recentVouchers' => Voucher::query()
-                ->where('module', 'accounts')
-                ->where('voucher_type', $voucherCode)
-                ->latest()
-                ->limit(20)
-                ->get(),
+            ...RecordHistory::build(request(), $voucherQuery, 'voucher_date'),
         ]);
     }
 }

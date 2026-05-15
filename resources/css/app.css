@@ -24,6 +24,11 @@
         @apply block w-full min-h-[1.75rem] border-0 bg-white px-1.5 py-0.5 text-[12px] text-slate-900 outline-none ring-1 ring-inset ring-slate-400 focus:ring-2 focus:ring-sky-600;
     }
 
+    .erp-body input.erp-input[type='text']:not(.erp-date-input):not(.erp-preserve-case):not(.font-mono):not([data-erp-preserve-case]),
+    .erp-body textarea.erp-input:not(.erp-preserve-case):not([data-erp-preserve-case]) {
+        text-transform: uppercase;
+    }
+
     .erp-field {
         @apply flex flex-col gap-0.5;
     }

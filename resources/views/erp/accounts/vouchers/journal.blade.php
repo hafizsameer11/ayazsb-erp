@@ -14,28 +14,11 @@
             <p class="text-[11px] text-slate-600"><abbr title="Journal voucher" class="cursor-help font-semibold">JV</abbr> — general journal: balanced <strong>Debit</strong> / <strong>Credit</strong> lines.</p>
 
             <div class="text-[11px] font-semibold uppercase text-slate-600">Voucher details</div>
-            <div class="overflow-x-auto border border-slate-400">
-                <table class="w-full min-w-[560px] border-collapse text-left text-[12px]">
-                    <thead>
-                        <tr class="bg-[#d8d8d8]">
-                            <th class="min-w-[200px] border border-slate-400 px-1 py-1 font-semibold">Account</th>
-                            <th class="border border-slate-400 px-1 py-1 font-semibold">Narration</th>
-                            <th class="border border-slate-400 px-1 py-1 font-semibold">Debit</th>
-                            <th class="border border-slate-400 px-1 py-1 font-semibold">Credit</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @for ($i = 0; $i < 6; $i++)
-                            <tr>
-                                @include('erp.accounts.vouchers.partials.line-account-select', ['i' => $i, 'voucherCode' => $voucherCode])
-                                <td class="border border-slate-300 p-0"><input class="erp-input w-full" type="text" name="lines[{{ $i }}][description]"></td>
-                                <td class="border border-slate-300 p-0"><input class="erp-input w-full text-right font-mono" type="text" name="lines[{{ $i }}][debit]" placeholder="0.00"></td>
-                                <td class="border border-slate-300 p-0"><input class="erp-input w-full text-right font-mono" type="text" name="lines[{{ $i }}][credit]" placeholder="0.00"></td>
-                            </tr>
-                        @endfor
-                    </tbody>
-                </table>
-            </div>
+            @include('erp.accounts.vouchers.partials.voucher-lines-block', [
+                'linePartial' => 'erp.accounts.vouchers.partials.voucher-line-journal',
+                'theadPartial' => 'erp.accounts.vouchers.partials.voucher-thead-journal',
+                'voucherCode' => $voucherCode,
+            ])
             <div class="flex flex-wrap items-end gap-3 border border-slate-300 bg-[#f0f0f0] p-2">
                 <input class="erp-input w-16 font-mono" type="text" value="0" readonly>
                 <label class="erp-field flex-1 min-w-[120px]"><span class="erp-label">Cost center</span><input class="erp-input" type="text" name="cost_center"></label>

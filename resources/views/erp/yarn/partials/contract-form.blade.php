@@ -1,6 +1,5 @@
 @php
     $direction = $direction ?? 'purchase';
-    $contractsForDirection = ($contracts ?? collect())->where('direction', $direction)->values();
 @endphp
 
 <div class="erp-panel border border-slate-500 bg-white shadow-md">
@@ -68,43 +67,15 @@
         </div>
 
         <div class="flex gap-2 border border-slate-300 bg-[#f0f0f0] p-2">
-            <button class="rounded border border-slate-600 bg-slate-200 px-4 py-1.5 text-[12px] font-semibold hover:bg-white">Save contract</button>
+            <button type="submit" class="rounded border border-slate-600 bg-slate-200 px-4 py-1.5 text-[12px] font-semibold hover:bg-white">Save</button>
         </div>
     </form>
 
-    <div class="border-t border-slate-300 p-3">
-        <div class="mb-2 text-[11px] font-semibold uppercase text-slate-600">Saved {{ $direction }} contracts</div>
-        <div class="overflow-x-auto border border-slate-400">
-            <table class="w-full min-w-[900px] border-collapse text-[12px]">
-                <thead>
-                    <tr class="bg-[#d8d8d8]">
-                        <th class="border border-slate-400 px-1 py-1">Contract</th>
-                        <th class="border border-slate-400 px-1 py-1">Date</th>
-                        <th class="border border-slate-400 px-1 py-1">Type</th>
-                        <th class="border border-slate-400 px-1 py-1">Account</th>
-                        <th class="border border-slate-400 px-1 py-1">Yarn</th>
-                        <th class="border border-slate-400 px-1 py-1 text-right">Weight</th>
-                        <th class="border border-slate-400 px-1 py-1 text-right">Rate</th>
-                        <th class="border border-slate-400 px-1 py-1">Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse($contractsForDirection as $contract)
-                        <tr>
-                            <td class="border border-slate-300 px-1 py-1 font-mono">{{ $contract->contract_no }}</td>
-                            <td class="border border-slate-300 px-1 py-1">{{ \App\Support\ErpDate::display($contract->contract_date) }}</td>
-                            <td class="border border-slate-300 px-1 py-1">{{ $contract->contract_type }}</td>
-                            <td class="border border-slate-300 px-1 py-1">{{ $contract->account?->code }} — {{ $contract->account?->name }}</td>
-                            <td class="border border-slate-300 px-1 py-1">{{ $contract->item?->code }} — {{ $contract->item?->name }}</td>
-                            <td class="border border-slate-300 px-1 py-1 text-right">{{ number_format((float) $contract->weight_lbs, 2) }}</td>
-                            <td class="border border-slate-300 px-1 py-1 text-right">{{ number_format((float) $contract->rate, 2) }}</td>
-                            <td class="border border-slate-300 px-1 py-1">{{ strtoupper($contract->status) }}</td>
-                        </tr>
-                    @empty
-                        <tr><td colspan="8" class="border border-slate-300 px-2 py-2 text-slate-500">No contracts yet.</td></tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
-    </div>
+    @include('erp.partials.records-history', [
+        'historyType' => 'contract',
+        'historyTitle' => 'Saved ' . $direction . ' contracts',
+        'historyEmpty' => 'No ' . $direction . ' contracts yet. Save a contract above; records will list here grouped by date.',
+        'recordsHistory' => $recordsHistory ?? null,
+        'recordsHistoryGrouped' => $recordsHistoryGrouped ?? collect(),
+    ])
 </div>

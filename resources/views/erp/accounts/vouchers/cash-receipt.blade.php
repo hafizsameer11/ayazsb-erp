@@ -17,28 +17,12 @@
             <p class="text-[11px] text-slate-600"><abbr title="Cash receipt voucher" class="cursor-help font-semibold">CR</abbr> — cash receipt: <strong>Debit</strong> (e.g. cash) and <strong>Credit</strong> (e.g. income / debtor).</p>
 
             <div class="text-[11px] font-semibold uppercase text-slate-600">Voucher details</div>
-            <div class="overflow-x-auto border border-slate-400">
-                <table class="w-full min-w-[640px] border-collapse text-left text-[12px]">
-                    <thead>
-                        <tr class="bg-[#d8d8d8]">
-                            <th class="min-w-[200px] border border-slate-400 px-1 py-1 font-semibold">Account</th>
-                            <th class="border border-slate-400 px-1 py-1 font-semibold">Narration</th>
-                            <th class="border border-slate-400 px-1 py-1 font-semibold">Debit</th>
-                            <th class="border border-slate-400 px-1 py-1 font-semibold">Credit</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @for ($i = 0; $i < 6; $i++)
-                            <tr>
-                                @include('erp.accounts.vouchers.partials.line-account-select', ['i' => $i, 'voucherCode' => $voucherCode])
-                                <td class="border border-slate-300 p-0"><input class="erp-input w-full" type="text" name="lines[{{ $i }}][description]"></td>
-                                <td class="border border-slate-300 p-0"><input class="erp-input w-full text-right font-mono" type="text" name="lines[{{ $i }}][debit]" placeholder="0.00" inputmode="decimal"></td>
-                                <td class="border border-slate-300 p-0"><input class="erp-input w-full text-right font-mono" type="text" name="lines[{{ $i }}][credit]" placeholder="0.00" inputmode="decimal"></td>
-                            </tr>
-                        @endfor
-                    </tbody>
-                </table>
-            </div>
+            @include('erp.accounts.vouchers.partials.voucher-lines-block', [
+                'linePartial' => 'erp.accounts.vouchers.partials.voucher-line-journal',
+                'theadPartial' => 'erp.accounts.vouchers.partials.voucher-thead-journal',
+                'voucherCode' => $voucherCode,
+                'tableClass' => 'w-full min-w-[640px] border-collapse text-left text-[12px]',
+            ])
             <div class="grid gap-2 border border-slate-300 bg-[#f0f0f0] p-2 md:grid-cols-2">
                 <label class="erp-field"><span class="erp-label">Cost center</span><input class="erp-input" type="text"></label>
                 <label class="erp-field"><span class="erp-label">In English</span><input class="erp-input" type="text" readonly></label>

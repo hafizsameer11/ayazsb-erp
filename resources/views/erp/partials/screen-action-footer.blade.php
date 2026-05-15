@@ -1,15 +1,29 @@
 @php
-    $actions = $actions ?? ['Save', 'Print', 'Post voucher'];
+    $actions = collect($actions ?? ['Print']);
+    $secondaryActions = $actions
+        ->filter(fn (string $action) => ! in_array(strtolower($action), ['save', 'post voucher', 'post'], true))
+        ->values();
     $permissionPrefix = $permissionPrefix ?? null;
+    $showSave = $showSave ?? true;
 @endphp
 <div class="flex flex-wrap justify-between gap-3 border border-slate-300 bg-[#f0f0f0] p-2">
     <div class="flex flex-wrap gap-2">
-        @foreach ($actions as $action)
+        @if ($showSave)
+            @if ($permissionPrefix === null || auth()->user()?->hasPermission($permissionPrefix . '.create'))
+                <button
+                    type="submit"
+                    name="submit_action"
+                    value="post"
+                    class="rounded border border-slate-600 bg-slate-200 px-4 py-1.5 text-[12px] font-semibold shadow-sm hover:bg-white"
+                >
+                    Save
+                </button>
+            @endif
+        @endif
+        @foreach ($secondaryActions as $action)
             @php
                 $actionKey = \Illuminate\Support\Str::of($action)->lower()->replace(' ', '-')->value();
                 $actionPermission = match ($actionKey) {
-                    'save' => 'edit',
-                    'post-voucher' => 'post',
                     'view-report' => 'view',
                     'export' => 'print',
                     'exit' => 'view',
@@ -17,7 +31,7 @@
                 };
             @endphp
             @if ($permissionPrefix === null || auth()->user()?->hasPermission($permissionPrefix . '.' . $actionPermission))
-                <button type="{{ \Illuminate\Support\Str::of($action)->lower()->value() === 'save' ? 'submit' : 'button' }}" class="rounded border border-slate-600 bg-slate-200 px-4 py-1.5 text-[12px] font-semibold shadow-sm hover:bg-white">
+                <button type="button" class="rounded border border-slate-600 bg-slate-200 px-4 py-1.5 text-[12px] font-semibold shadow-sm hover:bg-white">
                     {{ $action }}
                 </button>
             @endif
@@ -27,4 +41,3 @@
         <label class="erp-field"><span class="erp-label">Total</span><input class="erp-input w-28 text-right font-mono" type="text" value="0.00" readonly></label>
     </div>
 </div>
-

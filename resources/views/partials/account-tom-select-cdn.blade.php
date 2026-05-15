@@ -55,6 +55,7 @@
             syncAccountDesc(selectEl, ts.getValue());
         }
 
+        window.erpInitAccountSearch = initAccountSearch;
         document.querySelectorAll('select.js-account-search').forEach(initAccountSearch);
     });
 </script>

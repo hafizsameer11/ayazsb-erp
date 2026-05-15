@@ -126,7 +126,8 @@
         </div>
 
         <div class="text-[11px] font-semibold uppercase text-slate-600">{{ $lineLabel }}</div>
-        <div class="overflow-x-auto border border-slate-400">
+        <div data-erp-detail-lines data-name-prefix="lines" class="space-y-1">
+            <div class="overflow-x-auto border border-slate-400">
             <table class="w-full min-w-[1080px] border-collapse text-[12px]">
                 <thead>
                     <tr class="bg-[#d8d8d8]">
@@ -144,48 +145,21 @@
                         <th class="border border-slate-400 px-1 py-1">Amount</th>
                     </tr>
                 </thead>
-                <tbody>
-                    @for($i = 0; $i < 6; $i++)
-                        <tr>
-                            <td class="border border-slate-300 p-1">
-                                <select class="erp-input" name="lines[{{ $i }}][item_id]">
-                                    <option value="">Select yarn</option>
-                                    @foreach(($items ?? []) as $item)
-                                        <option value="{{ $item->id }}">{{ $item->code }} — {{ $item->name }}</option>
-                                    @endforeach
-                                </select>
-                            </td>
-                            <td class="border border-slate-300 p-1">
-                                <select class="erp-input" name="lines[{{ $i }}][meta][yarn_type]">
-                                    <option value="">Type</option>
-                                    <option value="WARP">WARP</option>
-                                    <option value="WEFT">WEFT</option>
-                                </select>
-                            </td>
-                            <td class="border border-slate-300 p-1"><input class="erp-input" name="lines[{{ $i }}][description]"></td>
-                            <td class="border border-slate-300 p-1"><input class="erp-input text-right" type="number" step="0.0001" min="0" name="lines[{{ $i }}][qty]"></td>
-                            <td class="border border-slate-300 p-1"><input class="erp-input text-right" type="number" step="0.0001" min="0" name="lines[{{ $i }}][meta][cones]"></td>
-                            <td class="border border-slate-300 p-1"><input class="erp-input text-right" type="number" step="0.0001" min="0" name="lines[{{ $i }}][weight_lbs]"></td>
-                            <td class="border border-slate-300 p-1"><input class="erp-input text-right" type="number" step="0.0001" min="0" name="lines[{{ $i }}][rate]"></td>
-                            <td class="border border-slate-300 p-1"><input class="erp-input text-right" type="number" step="0.0001" min="0" name="lines[{{ $i }}][meta][transfer_rate]"></td>
-                            @if($showAdjustment)
-                                <td class="border border-slate-300 p-1">
-                                    <select class="erp-input" name="lines[{{ $i }}][meta][adjustment_type]">
-                                        <option value="gain">Gain</option>
-                                        <option value="shortage">Shortage</option>
-                                    </select>
-                                </td>
-                            @endif
-                            <td class="border border-slate-300 p-1"><input class="erp-input text-right" type="number" step="0.01" min="0" name="lines[{{ $i }}][amount]"></td>
-                        </tr>
+                <tbody data-erp-detail-lines-body>
+                    @for ($i = 0; $i < 3; $i++)
+                        @include('erp.yarn.partials.movement-line-row', ['i' => $i, 'showAdjustment' => $showAdjustment])
                     @endfor
                 </tbody>
             </table>
+            </div>
+            <template data-erp-detail-line-template>
+                @include('erp.yarn.partials.movement-line-row', ['i' => 0, 'showAdjustment' => $showAdjustment])
+            </template>
+            @include('erp.partials.erp-add-line-row')
         </div>
 
         <div class="flex flex-wrap gap-2 border border-slate-300 bg-[#f0f0f0] p-2">
-            <button name="submit_action" value="save" class="rounded border border-slate-600 bg-slate-200 px-4 py-1.5 text-[12px] font-semibold hover:bg-white">Save</button>
-            <button name="submit_action" value="post" class="rounded border border-slate-600 bg-slate-200 px-4 py-1.5 text-[12px] font-semibold hover:bg-white">Post voucher</button>
+            <button type="submit" name="submit_action" value="post" class="rounded border border-slate-600 bg-slate-200 px-4 py-1.5 text-[12px] font-semibold hover:bg-white">Save</button>
         </div>
     </form>
 
