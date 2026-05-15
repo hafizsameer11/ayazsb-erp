@@ -7,8 +7,6 @@
         <div class="border-b border-slate-400 bg-[#e8e8e8] px-3 py-2 text-[12px] font-semibold text-slate-800">
             ACCNTS_0005 — Financial year
         </div>
-        @include('erp.partials.erp-form-toolbar')
-
         <div class="p-3">
             <form class="mb-3 grid gap-2 border border-slate-400 bg-[#f7f7f7] p-2 md:grid-cols-5" method="post" action="{{ route('erp.accounts.financial-year.store') }}">
                 @csrf

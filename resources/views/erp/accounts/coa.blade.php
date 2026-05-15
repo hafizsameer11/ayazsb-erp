@@ -7,8 +7,6 @@
         <div class="border-b border-slate-400 bg-[#e8e8e8] px-3 py-2 text-[12px] font-semibold text-slate-800">
             ACCNTS_0003 — Chart of accounts (COA)
         </div>
-        @include('erp.partials.erp-form-toolbar')
-
         <div class="border-b border-slate-300 px-2">
             <nav class="flex gap-1 text-[11px]" aria-label="COA levels">
                 @foreach (['head' => 'Head', 'control' => 'Control', 'ledger' => 'Ledger', 'sub_ledger' => 'Sub ledger'] as $key => $label)

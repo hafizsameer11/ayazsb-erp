@@ -23,8 +23,6 @@
         <div class="border-b border-slate-400 bg-[#e8e8e8] px-3 py-2 text-[12px] font-semibold text-slate-800">
             {{ $screen['code'] }} — {{ $screen['label'] }} — {{ $moduleLabel }}
         </div>
-        @include('erp.partials.erp-form-toolbar')
-
         <form class="space-y-2 p-3" action="{{ $moduleKey === 'reports' ? route('erp.reports.view', ['screen' => $screen['slug']]) : route('erp.' . $moduleKey . '.screen.store', ['screen' => $screen['slug']]) }}" method="{{ $moduleKey === 'reports' ? 'get' : 'post' }}">
             @if($moduleKey !== 'reports')
                 @csrf

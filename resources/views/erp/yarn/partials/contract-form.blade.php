@@ -7,8 +7,6 @@
     <div class="border-b border-slate-400 bg-[#e8e8e8] px-3 py-2 text-[12px] font-semibold text-slate-800">
         {{ $screen['code'] }} — {{ $screen['label'] }}
     </div>
-    @include('erp.partials.erp-form-toolbar')
-
     <form class="space-y-3 p-3" action="{{ route('erp.yarn.screen.store', ['screen' => $screen['slug']]) }}" method="post">
         @csrf
         <div class="grid gap-2 border border-slate-400 bg-[#f4f4f4] p-2 md:grid-cols-2 lg:grid-cols-4">
