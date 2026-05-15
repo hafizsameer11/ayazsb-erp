@@ -32,6 +32,18 @@
         @apply text-[10px] font-semibold uppercase tracking-wide text-slate-600;
     }
 
+    .erp-voucher-sheet .erp-voucher-entry .erp-input {
+        @apply min-h-[1.5rem] py-0 text-[11px];
+    }
+
+    .erp-voucher-sheet .erp-voucher-entry .erp-label {
+        @apply text-[9px];
+    }
+
+    .erp-voucher-sheet .erp-voucher-entry table td {
+        @apply leading-tight;
+    }
+
     .erp-tree-link {
         @apply block rounded px-1 py-0.5 text-slate-800 hover:bg-sky-100 hover:text-sky-900;
     }

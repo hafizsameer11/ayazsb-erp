@@ -18,6 +18,8 @@ class PermissionRegistry
             'erp.accounts.dashboard' => 'accounts.dashboard.view',
             'erp.accounts.coa' => 'accounts.coa.view',
             'erp.accounts.coa.store' => 'accounts.coa.create',
+            'erp.accounts.coa.update' => 'accounts.coa.edit',
+            'erp.profile' => 'accounts.dashboard.view',
             'erp.accounts.opening' => 'accounts.opening.view',
             'erp.accounts.opening.store' => 'accounts.opening.create',
             'erp.accounts.financial-year' => 'accounts.financial-year.view',

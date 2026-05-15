@@ -71,18 +71,6 @@
             @endif
             @yield('content')
         </main>
-
-        <aside class="hidden w-52 shrink-0 border-l border-slate-400 bg-[#d4d4d4] p-2 lg:block">
-            <div class="mb-2 text-[11px] font-semibold uppercase text-slate-600">Bookmark</div>
-            <ul class="space-y-1 text-[12px] text-slate-700">
-                <li class="rounded border border-slate-400 bg-white px-2 py-1">Grey Sale</li>
-                <li class="rounded border border-slate-400 bg-white px-2 py-1">Yarn (Gain / Shortage)</li>
-            </ul>
-            <div class="mt-4 border border-slate-400 bg-white p-2 text-center text-[11px] text-slate-600">
-                <div class="mx-auto mb-1 flex h-12 w-12 items-center justify-center rounded-full bg-slate-300 text-slate-600">User</div>
-                <div class="font-medium text-slate-800">{{ auth()->user()?->name ?? 'User' }}</div>
-            </div>
-        </aside>
     </div>
 
     <footer class="border-t border-slate-500 bg-[#b8b8b8] px-3 py-2">

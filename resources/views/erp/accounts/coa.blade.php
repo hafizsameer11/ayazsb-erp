@@ -24,9 +24,20 @@
             </nav>
         </div>
 
-        <form class="grid gap-2 border-b border-slate-300 p-3 md:grid-cols-2 lg:grid-cols-4" action="{{ route('erp.accounts.coa.store') }}" method="post">
+        <form
+            id="coa-form"
+            class="grid gap-2 border-b border-slate-300 p-3 md:grid-cols-2 lg:grid-cols-4"
+            action="{{ route('erp.accounts.coa.store') }}"
+            method="post"
+        >
             @csrf
             <input type="hidden" name="level" id="coa-level" value="{{ old('level', 'head') }}">
+            <input type="hidden" name="account_id" id="coa-account-id" value="{{ old('account_id') }}">
+
+            <label id="coa-code-wrap" class="erp-field hidden">
+                <span class="erp-label">Code</span>
+                <input class="erp-input border border-slate-400 bg-[#f0f0f0]" type="text" id="coa-code-display" readonly>
+            </label>
 
             <label class="erp-field">
                 <span class="erp-label">Level</span>
@@ -42,11 +53,20 @@
 
             <label class="erp-field md:col-span-2 lg:col-span-2">
                 <span class="erp-label">Name</span>
-                <input class="erp-input" type="text" name="name" value="{{ old('name') }}" required autocomplete="off">
+                <input class="erp-input" type="text" name="name" id="coa-name" value="{{ old('name') }}" required autocomplete="off">
             </label>
 
-            <div class="flex items-end md:col-span-2 lg:col-span-2">
-                <button type="submit" class="rounded border border-slate-600 bg-slate-200 px-3 py-1 text-xs font-semibold hover:bg-white">Save</button>
+            <label id="coa-active-wrap" class="erp-field hidden items-end">
+                <span class="erp-label">Active</span>
+                <label class="inline-flex items-center gap-1 text-[11px]">
+                    <input type="checkbox" name="is_active" id="coa-is-active" value="1" checked class="h-3.5 w-3.5">
+                    Yes
+                </label>
+            </label>
+
+            <div class="flex flex-wrap items-end gap-2 md:col-span-2 lg:col-span-4">
+                <button type="submit" id="coa-save-btn" class="rounded border border-slate-600 bg-slate-200 px-3 py-1 text-xs font-semibold hover:bg-white">Save</button>
+                <button type="button" id="coa-clear-btn" class="rounded border border-slate-500 bg-white px-3 py-1 text-xs font-semibold hover:bg-slate-50">Clear</button>
             </div>
         </form>
 
@@ -66,6 +86,10 @@
                                     <th class="border border-slate-400 px-1 py-1">Parent code</th>
                                 @endif
                                 <th class="border border-slate-400 px-1 py-1">Name</th>
+                                <th class="w-24 border border-slate-400 px-1 py-1 text-center">Active</th>
+                                @allowed('accounts.coa.edit')
+                                    <th class="w-16 border border-slate-400 px-1 py-1"></th>
+                                @endallowed
                             </tr>
                         </thead>
                         <tbody>
@@ -76,10 +100,24 @@
                                         <td class="border border-slate-300 px-1 py-1">{{ $acc->parent?->code ?? '—' }}</td>
                                     @endif
                                     <td class="border border-slate-300 px-1 py-1">{{ $acc->name }}</td>
+                                    <td class="border border-slate-300 px-1 py-1 text-center">{{ $acc->is_active ? 'Yes' : 'No' }}</td>
+                                    @allowed('accounts.coa.edit')
+                                        <td class="border border-slate-300 px-1 py-1 text-center">
+                                            <button
+                                                type="button"
+                                                class="coa-edit-btn rounded border border-slate-500 bg-white px-2 py-0.5 text-[11px] hover:bg-sky-50"
+                                                data-id="{{ $acc->id }}"
+                                                data-code="{{ $acc->code }}"
+                                                data-name="{{ $acc->name }}"
+                                                data-level="{{ $acc->level }}"
+                                                data-active="{{ $acc->is_active ? '1' : '0' }}"
+                                            >Edit</button>
+                                        </td>
+                                    @endallowed
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="{{ $tabKey === 'head' ? 2 : 3 }}" class="border border-slate-300 px-2 py-2 text-slate-500">
+                                    <td colspan="{{ ($tabKey === 'head' ? 3 : 4) + (auth()->user()?->hasPermission('accounts.coa.edit') ? 1 : 0) }}" class="border border-slate-300 px-2 py-2 text-slate-500">
                                         No {{ strtolower($tabLabel) }} accounts yet.
                                     </td>
                                 </tr>
@@ -155,6 +193,73 @@
                 });
             });
 
+            const coaForm = document.getElementById('coa-form');
+            const coaAccountId = document.getElementById('coa-account-id');
+            const coaName = document.getElementById('coa-name');
+            const coaSaveBtn = document.getElementById('coa-save-btn');
+            const coaClearBtn = document.getElementById('coa-clear-btn');
+            const coaCodeWrap = document.getElementById('coa-code-wrap');
+            const coaCodeDisplay = document.getElementById('coa-code-display');
+            const coaActiveWrap = document.getElementById('coa-active-wrap');
+            const coaIsActive = document.getElementById('coa-is-active');
+            const coaStoreUrl = @json(route('erp.accounts.coa.store'));
+            const coaUpdateBase = @json(url('/erp/accounts/coa'));
+            const coaUpdateUrl = (id) => `${coaUpdateBase}/${id}`;
+            let coaMethodInput = null;
+
+            function ensureCoaMethodInput() {
+                if (!coaMethodInput) {
+                    coaMethodInput = document.createElement('input');
+                    coaMethodInput.type = 'hidden';
+                    coaMethodInput.name = '_method';
+                    coaMethodInput.value = 'PATCH';
+                    coaForm.appendChild(coaMethodInput);
+                }
+                return coaMethodInput;
+            }
+
+            function setCoaCreateMode() {
+                coaForm.action = coaStoreUrl;
+                coaMethodInput?.remove();
+                coaMethodInput = null;
+                coaAccountId.value = '';
+                coaName.value = '';
+                coaCodeWrap.classList.add('hidden');
+                coaActiveWrap.classList.add('hidden');
+                coaSaveBtn.textContent = 'Save';
+                document.querySelectorAll('.coa-tab').forEach((b) => { b.disabled = false; });
+                parentWrap.classList.remove('hidden');
+            }
+
+            function setCoaEditMode(data) {
+                coaForm.action = coaUpdateUrl(data.id);
+                ensureCoaMethodInput();
+                coaAccountId.value = String(data.id);
+                coaName.value = data.name;
+                coaCodeDisplay.value = data.code;
+                coaCodeWrap.classList.remove('hidden');
+                coaActiveWrap.classList.remove('hidden');
+                coaIsActive.checked = data.active === '1';
+                coaSaveBtn.textContent = 'Update';
+                parentWrap.classList.add('hidden');
+                document.querySelectorAll('.coa-tab').forEach((b) => { b.disabled = true; });
+                coaForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+
+            coaClearBtn?.addEventListener('click', () => setCoaCreateMode());
+
+            document.querySelectorAll('.coa-edit-btn').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    setCoaEditMode({
+                        id: btn.dataset.id,
+                        code: btn.dataset.code,
+                        name: btn.dataset.name,
+                        level: btn.dataset.level,
+                        active: btn.dataset.active,
+                    });
+                });
+            });
+
             document.addEventListener('DOMContentLoaded', () => {
                 const initialLevel = @json(old('level', 'head'));
                 const initialParent = @json(old('parent_id'));
@@ -164,6 +269,16 @@
                     parentSelect.value = String(initialParent);
                     parentSelect.dispatchEvent(new Event('change'));
                 }
+
+                @if (old('account_id'))
+                    setCoaEditMode({
+                        id: @json(old('account_id')),
+                        code: @json(old('code', '')),
+                        name: @json(old('name', '')),
+                        level: @json(old('level', 'head')),
+                        active: @json(old('is_active', true) ? '1' : '0'),
+                    });
+                @endif
             });
         </script>
     @endpush

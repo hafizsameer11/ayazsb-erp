@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\Erp;
 
+use App\Http\Concerns\NormalizesErpDates;
 use App\Http\Controllers\Controller;
+use App\Rules\ErpDate;
 use App\Models\Account;
 use App\Models\AccountOpening;
 use App\Models\FinancialYear;
@@ -20,6 +22,8 @@ use Illuminate\View\View;
 
 class AccountsFinanceController extends Controller
 {
+    use NormalizesErpDates;
+
     public function dashboard(): View
     {
         $this->ensurePermission('accounts.dashboard.view');
@@ -149,14 +153,33 @@ class AccountsFinanceController extends Controller
         return back()->with('status', 'Account created.');
     }
 
+    public function updateAccount(Request $request, Account $account): RedirectResponse
+    {
+        $this->ensurePermission('accounts.coa.edit');
+
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'is_active' => ['sometimes', 'boolean'],
+        ]);
+
+        $account->update([
+            'name' => $validated['name'],
+            'is_active' => $request->boolean('is_active'),
+        ]);
+
+        return back()->with('status', "Account {$account->code} updated.");
+    }
+
     public function storeFinancialYear(Request $request): RedirectResponse
     {
         $this->ensurePermission('accounts.financial-year.create');
 
+        $this->normalizeErpDates($request, ['start_date', 'end_date']);
+
         $data = $request->validate([
             'year_code' => ['required', 'string', 'max:20', 'unique:financial_years,year_code'],
-            'start_date' => ['required', 'date'],
-            'end_date' => ['required', 'date', 'after_or_equal:start_date'],
+            'start_date' => ['required', 'date', new ErpDate],
+            'end_date' => ['required', 'date', 'after_or_equal:start_date', new ErpDate],
             'description' => ['nullable', 'string', 'max:255'],
         ]);
         $data['is_closed'] = $request->boolean('is_closed');
@@ -170,8 +193,10 @@ class AccountsFinanceController extends Controller
     {
         $this->ensurePermission('accounts.opening.create');
 
+        $this->normalizeErpDates($request, ['voucher_date']);
+
         $data = $request->validate([
-            'voucher_date' => ['required', 'date'],
+            'voucher_date' => ['required', 'date', new ErpDate],
             'financial_year_id' => ['required', 'integer', 'exists:financial_years,id'],
             'account_id' => [
                 'required',
@@ -198,8 +223,10 @@ class AccountsFinanceController extends Controller
         $this->ensurePermission("{$permissionPrefix}.create");
         $this->ensurePermission("{$permissionPrefix}.post");
 
+        $this->normalizeErpDates($request, ['voucher_date']);
+
         $data = $request->validate([
-            'voucher_date' => ['required', 'date'],
+            'voucher_date' => ['required', 'date', new ErpDate],
             'financial_year_id' => ['required', 'integer', 'exists:financial_years,id'],
             'remarks' => ['nullable', 'string', 'max:255'],
             'lines' => ['required', 'array', 'min:1'],

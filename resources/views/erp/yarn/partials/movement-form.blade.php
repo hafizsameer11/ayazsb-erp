@@ -18,7 +18,7 @@
         @csrf
         <div class="grid gap-2 border border-slate-400 bg-[#f4f4f4] p-2 md:grid-cols-2 lg:grid-cols-4">
             <label class="erp-field"><span class="erp-label">Trans #</span><input class="erp-input" value="Auto" readonly></label>
-            <label class="erp-field"><span class="erp-label">Dated</span><input class="erp-input" type="date" name="trans_date" value="{{ old('trans_date', now()->toDateString()) }}" required></label>
+            <label class="erp-field"><span class="erp-label">Dated</span><x-erp-date-input name="trans_date" :required="true" /></label>
             <label class="erp-field"><span class="erp-label">Voucher type</span><input class="erp-input" name="meta[voucher_type]" value="{{ old('meta.voucher_type', $defaultVoucherType) }}"></label>
             <label class="erp-field"><span class="erp-label">Reference</span><input class="erp-input" name="meta[ref_no]" value="{{ old('meta.ref_no') }}"></label>
 

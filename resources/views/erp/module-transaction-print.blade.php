@@ -6,7 +6,7 @@
     <div class="erp-panel border border-slate-500 bg-white p-4 shadow-md">
         <h1 class="mb-2 text-lg font-semibold">{{ strtoupper($transaction->module) }} {{ $transaction->screen_slug }} / {{ $transaction->trans_no }}</h1>
         <div class="mb-3 text-sm text-slate-700">
-            Date: {{ $transaction->trans_date }} | Account: {{ $transaction->account?->name ?? $transaction->yarnContract?->account?->name ?? $transaction->party?->name ?? '-' }} | Status: {{ strtoupper($transaction->status) }}
+            Date: {{ \App\Support\ErpDate::display($transaction->trans_date) }} | Account: {{ $transaction->account?->name ?? $transaction->yarnContract?->account?->name ?? $transaction->party?->name ?? '-' }} | Status: {{ strtoupper($transaction->status) }}
         </div>
         @if($transaction->module === 'yarn')
             <div class="mb-3 grid gap-2 text-sm text-slate-700 md:grid-cols-2">

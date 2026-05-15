@@ -13,7 +13,7 @@
         @csrf
         <div class="grid gap-2 border border-slate-400 bg-[#f4f4f4] p-2 md:grid-cols-2 lg:grid-cols-4">
             <label class="erp-field"><span class="erp-label">Contract #</span><input class="erp-input" name="contract_no" value="{{ old('contract_no') }}" required autocomplete="off"></label>
-            <label class="erp-field"><span class="erp-label">Dated</span><input class="erp-input" type="date" name="contract_date" value="{{ old('contract_date', now()->toDateString()) }}" required></label>
+            <label class="erp-field"><span class="erp-label">Dated</span><x-erp-date-input name="contract_date" :value="old('contract_date', $contract->contract_date ?? null)" :required="true" /></label>
             <label class="erp-field">
                 <span class="erp-label">Contract type</span>
                 <select class="erp-input" name="contract_type" required>
@@ -94,7 +94,7 @@
                     @forelse($contractsForDirection as $contract)
                         <tr>
                             <td class="border border-slate-300 px-1 py-1 font-mono">{{ $contract->contract_no }}</td>
-                            <td class="border border-slate-300 px-1 py-1">{{ $contract->contract_date?->format('Y-m-d') }}</td>
+                            <td class="border border-slate-300 px-1 py-1">{{ \App\Support\ErpDate::display($contract->contract_date) }}</td>
                             <td class="border border-slate-300 px-1 py-1">{{ $contract->contract_type }}</td>
                             <td class="border border-slate-300 px-1 py-1">{{ $contract->account?->code }} — {{ $contract->account?->name }}</td>
                             <td class="border border-slate-300 px-1 py-1">{{ $contract->item?->code }} — {{ $contract->item?->name }}</td>

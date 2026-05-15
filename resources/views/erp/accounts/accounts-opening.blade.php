@@ -12,7 +12,7 @@
         <div class="p-3">
             <form class="mb-3 grid gap-2 border border-slate-400 bg-[#f7f7f7] p-2 md:grid-cols-6" method="post" action="{{ route('erp.accounts.opening.store') }}">
                 @csrf
-                <label class="erp-field"><span class="erp-label">Voucher date</span><input class="erp-input" type="date" name="voucher_date" value="{{ now()->format('Y-m-d') }}" required></label>
+                <label class="erp-field"><span class="erp-label">Voucher date</span><x-erp-date-input name="voucher_date" :required="true" /></label>
                 <label class="erp-field"><span class="erp-label">Financial year</span><select class="erp-input" name="financial_year_id">@foreach(($financialYears ?? []) as $fy)<option value="{{ $fy->id }}">{{ $fy->year_code }}</option>@endforeach</select></label>
                 <label class="erp-field"><span class="erp-label">Debit</span><input class="erp-input" type="number" step="0.01" name="debit" value="0"></label>
                 <label class="erp-field"><span class="erp-label">Credit</span><input class="erp-input" type="number" step="0.01" name="credit" value="0"></label>
@@ -42,7 +42,7 @@
                         @forelse(($openings ?? []) as $opening)
                             <tr>
                                 <td class="border border-slate-300 px-1 py-1">{{ $opening->id }}</td>
-                                <td class="border border-slate-300 px-1 py-1">{{ $opening->voucher_date }}</td>
+                                <td class="border border-slate-300 px-1 py-1">{{ \App\Support\ErpDate::display($opening->voucher_date) }}</td>
                                 <td class="border border-slate-300 px-1 py-1">{{ $opening->financialYear?->year_code }}</td>
                                 <td class="border border-slate-300 px-1 py-1">{{ $opening->account?->code }}</td>
                                 <td class="border border-slate-300 px-1 py-1">{{ $opening->narration }}</td>

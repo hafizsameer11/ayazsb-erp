@@ -41,9 +41,9 @@
                     </section>
                     <section class="space-y-2">
                         <div class="grid gap-2 border border-slate-400 bg-[#f4f4f4] p-2 md:grid-cols-3">
-                            <label class="erp-field"><span class="erp-label">Dated</span><input class="erp-input" type="date" name="dated" value="{{ now()->format('Y-m-d') }}"></label>
-                            <label class="erp-field"><span class="erp-label">From date</span><input class="erp-input" type="date" name="from_date"></label>
-                            <label class="erp-field"><span class="erp-label">To date</span><input class="erp-input" type="date" name="to_date"></label>
+                            <label class="erp-field"><span class="erp-label">Dated</span><x-erp-date-input name="dated" /></label>
+                            <label class="erp-field"><span class="erp-label">From date</span><x-erp-date-input name="from_date" /></label>
+                            <label class="erp-field"><span class="erp-label">To date</span><x-erp-date-input name="to_date" /></label>
                         </div>
                         <div class="grid gap-2 border border-slate-400 bg-[#fdfdfd] p-2 md:grid-cols-2">
                             @for ($i = 0; $i < 12; $i++)
@@ -87,7 +87,7 @@
                             @forelse(($recentTransactions ?? []) as $transaction)
                                 <tr>
                                     <td class="border border-slate-300 px-1 py-1 font-mono">{{ $transaction->trans_no }}</td>
-                                    <td class="border border-slate-300 px-1 py-1">{{ $transaction->trans_date }}</td>
+                                    <td class="border border-slate-300 px-1 py-1">{{ \App\Support\ErpDate::display($transaction->trans_date) }}</td>
                                     <td class="border border-slate-300 px-1 py-1">{{ strtoupper($transaction->status) }}</td>
                                     <td class="border border-slate-300 px-1 py-1 text-right">{{ number_format((float) $transaction->total_amount, 2) }}</td>
                                     <td class="border border-slate-300 px-1 py-1 text-right">

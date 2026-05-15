@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\Erp;
 
+use App\Http\Concerns\NormalizesErpDates;
 use App\Http\Controllers\Controller;
+use App\Rules\ErpDate;
 use App\Models\InventoryTransaction;
 use App\Models\InventoryTransactionLine;
 use App\Models\Godown;
@@ -23,6 +25,8 @@ use Illuminate\View\View;
 
 class ModulePageController extends Controller
 {
+    use NormalizesErpDates;
+
     /**
      * @var array<string, string>
      */
@@ -198,8 +202,10 @@ class ModulePageController extends Controller
             return $this->storeYarnContract($request, $screenMeta['slug']);
         }
 
+        $this->normalizeErpDates($request, ['trans_date']);
+
         $data = $request->validate([
-            'trans_date' => ['required', 'date'],
+            'trans_date' => ['required', 'date', new ErpDate],
             'party_id' => ['nullable', 'integer', 'exists:parties,id'],
             'account_id' => ['nullable', 'integer', Rule::exists('accounts', 'id')->where(fn ($q) => $q->where('level', 'sub_ledger')->where('is_active', true))],
             'from_account_id' => ['nullable', 'integer', Rule::exists('accounts', 'id')->where(fn ($q) => $q->where('level', 'sub_ledger')->where('is_active', true))],
@@ -304,9 +310,11 @@ class ModulePageController extends Controller
     {
         $direction = $screen === 'sale-contract' ? 'sale' : 'purchase';
 
+        $this->normalizeErpDates($request, ['contract_date']);
+
         $data = $request->validate([
             'contract_no' => ['required', 'string', 'max:80'],
-            'contract_date' => ['required', 'date'],
+            'contract_date' => ['required', 'date', new ErpDate],
             'contract_type' => ['required', 'string', Rule::in(['BY RATE', 'EMANI'])],
             'account_id' => ['required', 'integer', Rule::exists('accounts', 'id')->where(fn ($q) => $q->where('level', 'sub_ledger')->where('is_active', true))],
             'party_id' => ['nullable', 'integer', 'exists:parties,id'],

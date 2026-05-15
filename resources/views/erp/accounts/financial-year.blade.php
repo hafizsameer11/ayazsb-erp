@@ -13,8 +13,8 @@
             <form class="mb-3 grid gap-2 border border-slate-400 bg-[#f7f7f7] p-2 md:grid-cols-5" method="post" action="{{ route('erp.accounts.financial-year.store') }}">
                 @csrf
                 <label class="erp-field"><span class="erp-label">Year code</span><input class="erp-input" type="text" name="year_code" required></label>
-                <label class="erp-field"><span class="erp-label">Start date</span><input class="erp-input" type="date" name="start_date" required></label>
-                <label class="erp-field"><span class="erp-label">End date</span><input class="erp-input" type="date" name="end_date" required></label>
+                <label class="erp-field"><span class="erp-label">Start date</span><x-erp-date-input name="start_date" :required="true" /></label>
+                <label class="erp-field"><span class="erp-label">End date</span><x-erp-date-input name="end_date" :required="true" /></label>
                 <label class="erp-field"><span class="erp-label">Description</span><input class="erp-input" type="text" name="description"></label>
                 <div class="flex items-end"><button class="rounded border border-slate-600 bg-slate-200 px-3 py-1 text-xs font-semibold hover:bg-white">Add Year</button></div>
             </form>
@@ -36,8 +36,8 @@
                             <tr>
                                 <td class="border border-slate-300 px-1 py-1">{{ $fy->id }}</td>
                                 <td class="border border-slate-300 px-1 py-1">{{ $fy->year_code }}</td>
-                                <td class="border border-slate-300 px-1 py-1">{{ $fy->start_date }}</td>
-                                <td class="border border-slate-300 px-1 py-1">{{ $fy->end_date }}</td>
+                                <td class="border border-slate-300 px-1 py-1">{{ \App\Support\ErpDate::display($fy->start_date) }}</td>
+                                <td class="border border-slate-300 px-1 py-1">{{ \App\Support\ErpDate::display($fy->end_date) }}</td>
                                 <td class="border border-slate-300 px-1 py-1">{{ $fy->description }}</td>
                                 <td class="border border-slate-300 px-1 py-1 text-center">{{ $fy->is_closed ? 'Yes' : 'No' }}</td>
                                 <td class="border border-slate-300 px-1 py-1 text-center">Saved</td>

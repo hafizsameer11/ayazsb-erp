@@ -5,6 +5,7 @@ use App\Http\Controllers\Erp\AdminAccessController;
 use App\Http\Controllers\Erp\AccountsFinanceController;
 use App\Http\Controllers\Erp\DocumentationController;
 use App\Http\Controllers\Erp\ModulePageController;
+use App\Http\Controllers\Erp\ProfileController;
 use App\Http\Controllers\Erp\ReportController;
 use App\Support\PermissionRegistry;
 use Illuminate\Support\Facades\Auth;
@@ -30,6 +31,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/', [AccountsFinanceController::class, 'dashboard'])->name('dashboard');
         Route::get('/coa', [AccountsFinanceController::class, 'chartOfAccounts'])->name('coa');
         Route::post('/coa', [AccountsFinanceController::class, 'storeAccount'])->name('coa.store');
+        Route::patch('/coa/{account}', [AccountsFinanceController::class, 'updateAccount'])->name('coa.update');
         Route::get('/opening', [AccountsFinanceController::class, 'accountsOpening'])->name('opening');
         Route::post('/opening', [AccountsFinanceController::class, 'storeOpening'])->name('opening.store');
         Route::get('/financial-year', [AccountsFinanceController::class, 'financialYear'])->name('financial-year');
@@ -46,6 +48,7 @@ Route::middleware('auth')->group(function () {
     });
 
     Route::prefix('erp')->name('erp.')->group(function () {
+        Route::get('/profile', [ProfileController::class, 'show'])->name('profile');
         Route::get('/docs', [DocumentationController::class, 'index'])->name('docs');
 
         Route::get('/yarn', [ModulePageController::class, 'dashboard'])->defaults('module', 'yarn')->name('yarn.dashboard');

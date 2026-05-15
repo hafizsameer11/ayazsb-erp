@@ -7,7 +7,7 @@
 @endphp
 <div class="grid gap-2 border border-slate-400 bg-[#f4f4f4] p-2 md:grid-cols-2 lg:grid-cols-4">
     <label class="erp-field"><span class="erp-label">{{ $primaryLabel }}</span><input class="erp-input" type="text" name="trans_no" placeholder="Auto"></label>
-    <label class="erp-field"><span class="erp-label">Dated</span><input class="erp-input" type="date" name="trans_date" value="{{ now()->format('Y-m-d') }}"></label>
+    <label class="erp-field"><span class="erp-label">Dated</span><x-erp-date-input name="trans_date" :required="true" /></label>
     <label class="erp-field"><span class="erp-label">{{ $secondaryLabel }}</span><input class="erp-input" type="text" name="trans_code"></label>
     <label class="erp-field">
         <span class="erp-label">{{ $statusLabel }}</span>

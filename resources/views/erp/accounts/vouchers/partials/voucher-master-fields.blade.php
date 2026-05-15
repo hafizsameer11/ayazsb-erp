@@ -3,7 +3,7 @@
     $showCashSummary = $showCashSummary ?? false;
 @endphp
 <div class="grid gap-2 border border-slate-400 bg-[#f4f4f4] p-2 md:grid-cols-2 lg:grid-cols-4">
-    <label class="erp-field"><span class="erp-label">Voucher date</span><input class="erp-input" type="date" name="voucher_date" value="{{ now()->format('Y-m-d') }}"></label>
+    <label class="erp-field"><span class="erp-label">Voucher date</span><x-erp-date-input name="voucher_date" :required="true" /></label>
     <label class="erp-field"><span class="erp-label">Voucher type</span><input class="erp-input" type="text" name="voucher_type" value="{{ $voucherCode ?? '' }}" readonly></label>
     <label class="erp-field"><span class="erp-label">Voucher num</span><input class="erp-input" type="text" name="voucher_num" placeholder="Auto" readonly></label>
     <label class="erp-field">

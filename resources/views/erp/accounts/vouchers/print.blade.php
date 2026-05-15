@@ -6,7 +6,7 @@
     <div class="erp-panel border border-slate-500 bg-white p-4 shadow-md">
         <h1 class="mb-2 text-lg font-semibold">Voucher {{ $voucher->voucher_type }} / {{ $voucher->voucher_number }}</h1>
         <div class="mb-3 text-sm text-slate-700">
-            Date: {{ $voucher->voucher_date }} | Status: {{ strtoupper($voucher->status) }}
+            Date: {{ \App\Support\ErpDate::display($voucher->voucher_date) }} | Status: {{ strtoupper($voucher->status) }}
         </div>
         <table class="w-full border-collapse text-sm">
             <thead>

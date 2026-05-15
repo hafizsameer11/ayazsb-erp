@@ -1,14 +1,14 @@
 @php
     $list = $recentVouchers ?? collect();
 @endphp
-<div class="border-t border-slate-300 p-3">
+<div class="erp-voucher-history flex min-h-0 flex-1 flex-col border-t border-slate-300 p-2">
     <div class="mb-2 text-[11px] font-semibold uppercase text-slate-600">Posted vouchers (this screen)</div>
     @if ($list->isEmpty())
         <p class="border border-slate-300 bg-[#f9f9f9] px-2 py-3 text-[12px] text-slate-600">
             No posted vouchers for this type yet. Use <strong>Post voucher</strong> above; the last 20 documents will list here.
         </p>
     @else
-        <div class="overflow-x-auto border border-slate-400">
+        <div class="min-h-[280px] flex-1 overflow-y-auto overflow-x-auto border border-slate-400">
             <table class="w-full min-w-[640px] border-collapse text-left text-[12px]">
                 <thead>
                     <tr class="bg-[#d8d8d8]">
@@ -30,7 +30,7 @@
                         @endphp
                         <tr>
                             <td class="border border-slate-300 px-1 py-1 font-mono">{{ $v->voucher_number }}</td>
-                            <td class="border border-slate-300 px-1 py-1">{{ $v->voucher_date }}</td>
+                            <td class="border border-slate-300 px-1 py-1">{{ \App\Support\ErpDate::display($v->voucher_date) }}</td>
                             <td class="border border-slate-300 px-1 py-1">{{ strtoupper($v->status) }}</td>
                             <td class="border border-slate-300 px-1 py-1 text-right font-mono">{{ number_format($dr, 2) }}</td>
                             <td class="border border-slate-300 px-1 py-1 text-right font-mono">{{ number_format($cr, 2) }}</td>

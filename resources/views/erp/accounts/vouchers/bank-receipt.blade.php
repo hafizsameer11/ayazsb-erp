@@ -3,9 +3,9 @@
 @section('title', $voucherTitle)
 
 @section('content')
-    <div class="erp-panel border border-slate-500 bg-white shadow-md">
+    <div class="erp-panel erp-voucher-sheet flex min-h-[calc(100vh-9rem)] flex-col border border-slate-500 bg-white shadow-md">
         @include('erp.accounts.vouchers.partials.voucher-header', ['formId' => $formId, 'voucherTitle' => $voucherTitle, 'voucherCode' => $voucherCode])
-        <form class="space-y-2 p-3" action="{{ route('erp.accounts.vouchers.store', ['voucherType' => strtolower($voucherCode)]) }}" method="post">
+        <form class="erp-voucher-entry shrink-0 space-y-1 p-2" action="{{ route('erp.accounts.vouchers.store', ['voucherType' => strtolower($voucherCode)]) }}" method="post">
             @csrf
             <div class="text-[11px] font-semibold uppercase text-slate-600">Voucher master</div>
             @include('erp.accounts.vouchers.partials.voucher-master-fields', ['showBank' => true])
@@ -28,12 +28,12 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @for ($i = 0; $i < 10; $i++)
+                        @for ($i = 0; $i < 6; $i++)
                             <tr>
                                 @include('erp.accounts.vouchers.partials.line-account-select', ['i' => $i, 'voucherCode' => $voucherCode])
                                 <td class="border border-slate-300 p-0"><select class="erp-input w-full" name="lines[{{ $i }}][tag]"><option></option></select></td>
                                 <td class="border border-slate-300 p-0"><input class="erp-input w-full" type="text"></td>
-                                <td class="border border-slate-300 p-0"><input class="erp-input w-full" type="date"></td>
+                                <td class="border border-slate-300 p-0"><input class="erp-input erp-date-input w-full" type="text" placeholder="DD-MM-YYYY" autocomplete="off"></td>
                                 <td class="border border-slate-300 p-0"><input class="erp-input w-full" type="text"></td>
                                 <td class="border border-slate-300 p-0"><input class="erp-input w-full" type="text" name="lines[{{ $i }}][description]"></td>
                                 <td class="border border-slate-300 p-0"><input class="erp-input w-full text-right font-mono" type="text" name="lines[{{ $i }}][debit]" placeholder="0.00" inputmode="decimal"></td>

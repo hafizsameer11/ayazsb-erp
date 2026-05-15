@@ -20,7 +20,7 @@
                 @forelse($rows as $transaction)
                     <tr>
                         <td class="border border-slate-300 px-1 py-1 font-mono">{{ $transaction->trans_no }}</td>
-                        <td class="border border-slate-300 px-1 py-1">{{ $transaction->trans_date }}</td>
+                        <td class="border border-slate-300 px-1 py-1">{{ \App\Support\ErpDate::display($transaction->trans_date) }}</td>
                         <td class="border border-slate-300 px-1 py-1">
                             {{ $transaction->account?->name
                                 ?? $transaction->yarnContract?->account?->name
