@@ -1,16 +1,17 @@
 @php
     $showBank = $showBank ?? false;
     $showCashSummary = $showCashSummary ?? false;
+    $editingVoucher = $editingVoucher ?? null;
 @endphp
 <div class="grid gap-2 border border-slate-400 bg-[#f4f4f4] p-2 md:grid-cols-2 lg:grid-cols-4">
-    <label class="erp-field"><span class="erp-label">Voucher date</span><x-erp-date-input name="voucher_date" :required="true" /></label>
+    <label class="erp-field"><span class="erp-label">Voucher date</span><x-erp-date-input name="voucher_date" :value="old('voucher_date', $editingVoucher?->voucher_date ?? ($defaultVoucherDate ?? null))" :required="true" /></label>
     <label class="erp-field"><span class="erp-label">Voucher type</span><input class="erp-input" type="text" name="voucher_type" value="{{ $voucherCode ?? '' }}" readonly></label>
-    <label class="erp-field"><span class="erp-label">Voucher num</span><input class="erp-input" type="text" name="voucher_num" placeholder="Auto" readonly></label>
+    <label class="erp-field"><span class="erp-label">Voucher num</span><input class="erp-input" type="text" name="voucher_num" value="{{ $editingVoucher?->voucher_number ?? '' }}" placeholder="Auto" readonly></label>
     <label class="erp-field">
         <span class="erp-label">Fiscal year</span>
         <select class="erp-input" name="financial_year_id">
             @foreach(($financialYears ?? []) as $fy)
-                <option value="{{ $fy->id }}">{{ $fy->year_code }}</option>
+                <option value="{{ $fy->id }}" @selected((string) old('financial_year_id', $editingVoucher?->financial_year_id) === (string) $fy->id)>{{ $fy->year_code }}</option>
             @endforeach
         </select>
     </label>
@@ -18,6 +19,10 @@
         <label class="erp-field"><span class="erp-label">Bank code</span><input class="erp-input" type="text" name="bank_code"></label>
         <label class="erp-field md:col-span-2"><span class="erp-label">Bank name</span><input class="erp-input w-full" type="text" name="bank_name"></label>
     @endif
+    <label class="erp-field md:col-span-2 lg:col-span-4">
+        <span class="erp-label">Remarks</span>
+        <input class="erp-input" type="text" name="remarks" value="{{ old('remarks', $editingVoucher?->remarks) }}">
+    </label>
     <div class="flex items-end gap-4 lg:col-span-2">
         <label class="inline-flex items-center gap-1 text-[11px]"><input type="checkbox" name="feed_ind" class="h-3.5 w-3.5"> Feed ind</label>
         <span class="rounded border border-green-500 bg-green-50 px-2 py-1 text-[11px] font-semibold uppercase text-green-700">Save to post</span>

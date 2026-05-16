@@ -5,6 +5,7 @@ use App\Http\Controllers\Erp\AdminAccessController;
 use App\Http\Controllers\Erp\AccountsFinanceController;
 use App\Http\Controllers\Erp\DocumentationController;
 use App\Http\Controllers\Erp\ModulePageController;
+use App\Http\Controllers\Erp\YarnMasterDataController;
 use App\Http\Controllers\Erp\ProfileController;
 use App\Http\Controllers\Erp\ReportController;
 use App\Support\PermissionRegistry;
@@ -34,6 +35,8 @@ Route::middleware('auth')->group(function () {
         Route::patch('/coa/{account}', [AccountsFinanceController::class, 'updateAccount'])->name('coa.update');
         Route::get('/opening', [AccountsFinanceController::class, 'accountsOpening'])->name('opening');
         Route::post('/opening', [AccountsFinanceController::class, 'storeOpening'])->name('opening.store');
+        Route::patch('/opening/{opening}', [AccountsFinanceController::class, 'updateOpening'])->name('opening.update');
+        Route::delete('/opening/{opening}', [AccountsFinanceController::class, 'destroyOpening'])->name('opening.destroy');
         Route::get('/financial-year', [AccountsFinanceController::class, 'financialYear'])->name('financial-year');
         Route::post('/financial-year', [AccountsFinanceController::class, 'storeFinancialYear'])->name('financial-year.store');
         Route::get('/vouchers/jv', [AccountsFinanceController::class, 'journalVoucher'])->name('vouchers.jv');
@@ -43,6 +46,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/vouchers/brv', [AccountsFinanceController::class, 'bankReceiptVoucher'])->name('vouchers.brv');
         Route::get('/vouchers/cv', [AccountsFinanceController::class, 'cashVoucher'])->name('vouchers.cv');
         Route::post('/vouchers/{voucherType}', [AccountsFinanceController::class, 'storeVoucher'])->name('vouchers.store');
+        Route::patch('/vouchers/{voucher}', [AccountsFinanceController::class, 'updateVoucher'])->name('vouchers.update');
+        Route::delete('/vouchers/{voucher}', [AccountsFinanceController::class, 'destroyVoucher'])->name('vouchers.destroy');
         Route::post('/vouchers/{voucher}/post', [AccountsFinanceController::class, 'postVoucher'])->name('vouchers.post');
         Route::get('/vouchers/{voucher}/print', [AccountsFinanceController::class, 'printVoucher'])->name('vouchers.print');
     });
@@ -52,14 +57,22 @@ Route::middleware('auth')->group(function () {
         Route::get('/docs', [DocumentationController::class, 'index'])->name('docs');
 
         Route::get('/yarn', [ModulePageController::class, 'dashboard'])->defaults('module', 'yarn')->name('yarn.dashboard');
+        Route::get('/yarn/master-data', [YarnMasterDataController::class, 'show'])->name('yarn.master-data');
+        Route::post('/yarn/master-data', [YarnMasterDataController::class, 'store'])->name('yarn.master-data.store');
         Route::get('/yarn/{screen}', [ModulePageController::class, 'screen'])->defaults('module', 'yarn')->name('yarn.screen');
         Route::post('/yarn/{screen}', [ModulePageController::class, 'storeScreenData'])->defaults('module', 'yarn')->name('yarn.screen.store');
+        Route::patch('/yarn/{screen}/{transaction}', [ModulePageController::class, 'updateScreenData'])->defaults('module', 'yarn')->name('yarn.screen.update');
+        Route::delete('/yarn/{screen}/{transaction}', [ModulePageController::class, 'destroyScreenData'])->defaults('module', 'yarn')->name('yarn.screen.destroy');
+        Route::patch('/yarn/{screen}/contracts/{contract}', [ModulePageController::class, 'updateYarnContract'])->defaults('module', 'yarn')->name('yarn.screen.contract.update');
+        Route::delete('/yarn/{screen}/contracts/{contract}', [ModulePageController::class, 'destroyYarnContract'])->defaults('module', 'yarn')->name('yarn.screen.contract.destroy');
         Route::post('/yarn/{screen}/{transaction}/post', [ModulePageController::class, 'postScreenData'])->defaults('module', 'yarn')->name('yarn.screen.post');
         Route::get('/yarn/{screen}/{transaction}/print', [ModulePageController::class, 'printScreenData'])->defaults('module', 'yarn')->name('yarn.screen.print');
 
         Route::get('/grey', [ModulePageController::class, 'dashboard'])->defaults('module', 'grey')->name('grey.dashboard');
         Route::get('/grey/{screen}', [ModulePageController::class, 'screen'])->defaults('module', 'grey')->name('grey.screen');
         Route::post('/grey/{screen}', [ModulePageController::class, 'storeScreenData'])->defaults('module', 'grey')->name('grey.screen.store');
+        Route::patch('/grey/{screen}/{transaction}', [ModulePageController::class, 'updateScreenData'])->defaults('module', 'grey')->name('grey.screen.update');
+        Route::delete('/grey/{screen}/{transaction}', [ModulePageController::class, 'destroyScreenData'])->defaults('module', 'grey')->name('grey.screen.destroy');
         Route::post('/grey/{screen}/{transaction}/post', [ModulePageController::class, 'postScreenData'])->defaults('module', 'grey')->name('grey.screen.post');
         Route::get('/grey/{screen}/{transaction}/print', [ModulePageController::class, 'printScreenData'])->defaults('module', 'grey')->name('grey.screen.print');
 

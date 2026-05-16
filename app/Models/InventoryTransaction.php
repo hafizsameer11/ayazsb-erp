@@ -3,11 +3,13 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class InventoryTransaction extends Model
 {
+    use SoftDeletes;
     protected $fillable = [
         'module',
         'screen_slug',
@@ -32,6 +34,7 @@ class InventoryTransaction extends Model
     ];
 
     protected $casts = [
+        'trans_date' => 'date',
         'meta' => 'array',
     ];
 

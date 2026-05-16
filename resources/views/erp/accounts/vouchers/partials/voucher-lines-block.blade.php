@@ -1,5 +1,9 @@
 @php
     $initialRows = $initialRows ?? 3;
+    $editingLines = $editingLines ?? null;
+    $rowCount = $editingLines && $editingLines->isNotEmpty()
+        ? max($initialRows, $editingLines->count())
+        : $initialRows;
 @endphp
 <div data-erp-detail-lines data-name-prefix="lines" class="space-y-1">
     <div class="overflow-x-auto border border-slate-400">
@@ -8,8 +12,8 @@
                 @include($theadPartial)
             </thead>
             <tbody data-erp-detail-lines-body>
-                @for ($i = 0; $i < $initialRows; $i++)
-                    @include($linePartial, ['i' => $i, 'voucherCode' => $voucherCode ?? ''])
+                @for ($i = 0; $i < $rowCount; $i++)
+                    @include($linePartial, ['i' => $i, 'line' => $editingLines?->get($i), 'voucherCode' => $voucherCode ?? ''])
                 @endfor
             </tbody>
         </table>

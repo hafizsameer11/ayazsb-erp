@@ -5,8 +5,7 @@
 @section('content')
     <div class="erp-panel erp-voucher-sheet flex min-h-[calc(100vh-9rem)] flex-col border border-slate-500 bg-white shadow-md">
         @include('erp.accounts.vouchers.partials.voucher-header', ['formId' => $formId, 'voucherTitle' => $voucherTitle, 'voucherCode' => $voucherCode])
-        <form class="erp-voucher-entry shrink-0 space-y-1 p-2" action="{{ route('erp.accounts.vouchers.store', ['voucherType' => strtolower($voucherCode)]) }}" method="post">
-            @csrf
+        @include('erp.accounts.vouchers.partials.voucher-form-open')
             <div class="flex flex-wrap items-start justify-between gap-2">
                 <div class="flex-1 space-y-2">
                     <div class="text-[11px] font-semibold uppercase text-slate-600">Voucher master</div>
@@ -30,5 +29,6 @@
             @include('erp.accounts.vouchers.partials.voucher-actions', ['actions' => ['Voucher print', 'Print slip'], 'permissionPrefix' => $permissionPrefix ?? null])
         </form>
         @include('erp.accounts.vouchers.partials.voucher-recent-saved')
+        @include('erp.accounts.vouchers.partials.voucher-edit-scripts')
     </div>
 @endsection

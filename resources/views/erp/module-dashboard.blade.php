@@ -16,7 +16,12 @@
                             @foreach ($items as $item)
                                 <li>
                                     @allowed($moduleKey . '.' . $item['slug'] . '.view')
-                                        <a class="erp-tree-link" href="{{ route('erp.' . $moduleKey . '.screen', ['screen' => $item['slug']]) }}">
+                                        @php
+                                            $screenHref = ($moduleKey === 'yarn' && $item['slug'] === 'master-data')
+                                                ? route('erp.yarn.master-data')
+                                                : route('erp.' . $moduleKey . '.screen', ['screen' => $item['slug']]);
+                                        @endphp
+                                        <a class="erp-tree-link" href="{{ $screenHref }}">
                                             {{ $item['label'] }}
                                         </a>
                                     @else

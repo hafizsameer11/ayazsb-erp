@@ -1,7 +1,8 @@
 @php
     $columns = $columns ?? ['Item code', 'Description', 'Qty', 'Unit', 'Rate', 'Amount', 'Notes'];
-    $initialRows = $initialRows ?? 3;
     $namePrefix = $namePrefix ?? 'lines';
+    $editingLines = $editingLines ?? collect();
+    $lineRowCount = $editingLines->isNotEmpty() ? max(3, $editingLines->count()) : 3;
 @endphp
 <div data-erp-detail-lines data-name-prefix="{{ $namePrefix }}" class="space-y-1">
     <div class="overflow-x-auto border border-slate-400">
@@ -14,7 +15,10 @@
                 </tr>
             </thead>
             <tbody data-erp-detail-lines-body>
-                @for ($i = 0; $i < $initialRows; $i++)
+                @for ($i = 0; $i < $lineRowCount; $i++)
+                    @php
+                        $line = $editingLines->get($i);
+                    @endphp
                     <tr>
                         @foreach ($columns as $column)
                             @php
@@ -29,12 +33,17 @@
                                     'gross amount', 'amount' => 'amount',
                                     default => 'description',
                                 };
+                                $value = old("{$namePrefix}.{$i}.{$fieldName}", $line?->{$fieldName} ?? ($fieldName === 'meta' ? null : ''));
+                                if ($fieldName === 'item_id' && $line?->item_id) {
+                                    $value = old("{$namePrefix}.{$i}.{$fieldName}", $line->item_id);
+                                }
                             @endphp
                             <td class="border border-slate-300 p-0">
                                 <input
                                     class="erp-input w-full {{ $isNumeric ? 'text-right font-mono' : '' }}"
                                     type="text"
                                     name="{{ $namePrefix }}[{{ $i }}][{{ $fieldName }}]"
+                                    value="{{ $value }}"
                                     placeholder="{{ $isNumeric ? '0.00' : '' }}"
                                 >
                             </td>

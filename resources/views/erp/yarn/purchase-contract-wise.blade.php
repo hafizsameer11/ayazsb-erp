@@ -3,11 +3,8 @@
 @section('title', $screen['label'])
 
 @section('content')
-    @include('erp.yarn.partials.movement-form', [
-        'contractMode' => 'single',
-        'singleContracts' => $purchaseContracts,
-        'showGodownPair' => false,
-        'lineLabel' => 'Contract-wise purchase lines',
-        'defaultVoucherType' => 'PV',
+    @include('erp.yarn.partials.contract-wise-form', [
+        'direction' => 'purchase',
+        'contracts' => $purchaseContracts,
     ])
 @endsection

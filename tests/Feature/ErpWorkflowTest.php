@@ -66,31 +66,43 @@ class ErpWorkflowTest extends TestCase
 
         \App\Models\YarnContract::query()->create([
             'contract_no' => 'TEST-PURCHASE-001',
+            'contract_code' => 'YPCTEST-PURCHASE-001',
             'direction' => 'purchase',
-            'contract_type' => 'BY RATE',
+            'contract_type' => 'PURCHASE',
             'contract_date' => now()->toDateString(),
+            'payment_term' => 'cash',
             'account_id' => $supplierAccount->id,
             'item_id' => $item->id,
             'godown_id' => $godown->id,
             'unit' => 'LBS',
             'quantity' => 100,
+            'packing_size' => 40,
             'weight_lbs' => 10000,
+            'total_kgs' => 4535.97,
             'rate' => 500,
+            'total_amount' => 5000000,
+            'total_net_amount' => 5000000,
             'status' => 'open',
         ]);
 
         \App\Models\YarnContract::query()->create([
             'contract_no' => 'TEST-SALE-001',
+            'contract_code' => 'YSCTEST-SALE-001',
             'direction' => 'sale',
-            'contract_type' => 'EMANI',
+            'contract_type' => 'SALE',
             'contract_date' => now()->toDateString(),
+            'payment_term' => 'cash',
             'account_id' => $customerAccount->id,
             'item_id' => $item->id,
             'godown_id' => $godown->id,
             'unit' => 'LBS',
             'quantity' => 60,
+            'packing_size' => 40,
             'weight_lbs' => 6000,
+            'total_kgs' => 2721.58,
             'rate' => 520,
+            'total_amount' => 3120000,
+            'total_net_amount' => 3120000,
             'status' => 'open',
         ]);
     }
@@ -206,11 +218,16 @@ class ErpWorkflowTest extends TestCase
 
         $purchase = $this->actingAs($admin)->post(route('erp.yarn.screen.store', ['screen' => 'purchase-contract-wise']), [
             'trans_date' => now()->toDateString(),
+            'account_id' => $contract->account_id,
             'yarn_contract_id' => $contract->id,
+            'from_godown_id' => $contract->godown_id,
+            'item_id' => $item->id,
+            'packing_size' => $contract->packing_size ?: 40,
+            'quantity' => 5,
+            'no_of_cones' => 0,
+            'rate' => 50,
             'submit_action' => 'post',
-            'lines' => [
-                ['item_id' => $item->id, 'description' => 'Contract purchase', 'qty' => 5, 'weight_lbs' => 500, 'rate' => 50],
-            ],
+            'meta' => ['voucher_type' => 'YPV'],
         ]);
         $purchase->assertRedirect();
 
@@ -243,6 +260,58 @@ class ErpWorkflowTest extends TestCase
         ]))->assertOk();
     }
 
+    public function test_yarn_contract_edit_loads_form_with_record_data(): void
+    {
+        $admin = \App\Models\User::query()->where('email', 'admin@erp.local')->firstOrFail();
+        $contract = \App\Models\YarnContract::query()->where('direction', 'purchase')->firstOrFail();
+
+        $this->actingAs($admin)
+            ->get(route('erp.yarn.screen', [
+                'screen' => 'purchase-contract',
+                'edit' => $contract->id,
+                'history_date' => $contract->contract_date->format('d-m-Y'),
+            ]))
+            ->assertOk()
+            ->assertSee($contract->contract_no)
+            ->assertSee('Update', false);
+    }
+
+    public function test_yarn_transaction_edit_loads_form_with_record_data(): void
+    {
+        $admin = \App\Models\User::query()->where('email', 'admin@erp.local')->firstOrFail();
+        $contract = \App\Models\YarnContract::query()->where('direction', 'purchase')->firstOrFail();
+        $item = $contract->item ?? \App\Models\Item::query()->where('module', 'yarn')->firstOrFail();
+
+        $this->actingAs($admin)->post(route('erp.yarn.screen.store', ['screen' => 'purchase-contract-wise']), [
+            'trans_date' => now()->toDateString(),
+            'account_id' => $contract->account_id,
+            'yarn_contract_id' => $contract->id,
+            'from_godown_id' => $contract->godown_id,
+            'item_id' => $item->id,
+            'packing_size' => $contract->packing_size ?: 40,
+            'quantity' => 2,
+            'no_of_cones' => 0,
+            'rate' => 10,
+            'submit_action' => 'post',
+            'meta' => ['voucher_type' => 'YPV'],
+        ])->assertRedirect();
+
+        $transaction = \App\Models\InventoryTransaction::query()
+            ->where('screen_slug', 'purchase-contract-wise')
+            ->latest()
+            ->firstOrFail();
+
+        $this->actingAs($admin)
+            ->get(route('erp.yarn.screen', [
+                'screen' => 'purchase-contract-wise',
+                'edit' => $transaction->id,
+                'history_date' => \App\Support\ErpDate::display($transaction->trans_date),
+            ]))
+            ->assertOk()
+            ->assertSee($transaction->trans_no)
+            ->assertSee('Update', false);
+    }
+
     public function test_yarn_contract_can_be_created_from_contract_screen(): void
     {
         $admin = \App\Models\User::query()->where('email', 'admin@erp.local')->firstOrFail();
@@ -253,13 +322,14 @@ class ErpWorkflowTest extends TestCase
         $response = $this->actingAs($admin)->post(route('erp.yarn.screen.store', ['screen' => 'purchase-contract']), [
             'contract_no' => 'TEST-CNT-001',
             'contract_date' => now()->toDateString(),
-            'contract_type' => 'BY RATE',
+            'payment_term' => 'cash',
             'account_id' => $account->id,
             'item_id' => $item->id,
-            'godown_id' => $godown->id,
+            'packing_size' => $item->pack_size_cones ?: 40,
             'quantity' => 20,
-            'weight_lbs' => 2000,
+            'no_of_cones' => 0,
             'rate' => 75,
+            'status' => 'open',
         ]);
 
         $response->assertRedirect();
@@ -304,11 +374,16 @@ class ErpWorkflowTest extends TestCase
 
         $this->actingAs($admin)->post(route('erp.yarn.screen.store', ['screen' => 'purchase-contract-wise']), [
             'trans_date' => now()->toDateString(),
+            'account_id' => $from->account_id,
             'yarn_contract_id' => $from->id,
+            'from_godown_id' => $from->godown_id,
+            'item_id' => $item->id,
+            'packing_size' => $from->packing_size ?: 40,
+            'quantity' => 10,
+            'no_of_cones' => 0,
+            'rate' => 20,
             'submit_action' => 'post',
-            'lines' => [
-                ['item_id' => $item->id, 'description' => 'Purchase', 'qty' => 10, 'weight_lbs' => 1000, 'rate' => 20],
-            ],
+            'meta' => ['voucher_type' => 'YPV'],
         ])->assertRedirect();
 
         $this->actingAs($admin)->post(route('erp.yarn.screen.store', ['screen' => 'issuance']), [
@@ -362,6 +437,50 @@ class ErpWorkflowTest extends TestCase
         $this->assertEqualsWithDelta(25, $snapshot['gain_weight_lbs'], 0.001);
         $this->assertEqualsWithDelta(10, $snapshot['shortage_weight_lbs'], 0.001);
         $this->assertEqualsWithDelta(665, $snapshot['available_weight_lbs'], 0.001);
+    }
+
+    public function test_super_admin_can_soft_delete_voucher_and_it_disappears_from_lists(): void
+    {
+        $admin = \App\Models\User::query()->where('email', 'admin@erp.local')->firstOrFail();
+        $fy = \App\Models\FinancialYear::query()->firstOrFail();
+        $account = \App\Models\Account::query()->postable()->firstOrFail();
+
+        $voucher = \App\Models\Voucher::query()->create([
+            'module' => 'accounts',
+            'voucher_type' => 'JV',
+            'voucher_number' => 'JV-DELETE-TEST',
+            'voucher_date' => now()->toDateString(),
+            'financial_year_id' => $fy->id,
+            'status' => 'draft',
+            'total_debit' => 500,
+            'total_credit' => 500,
+            'total_amount' => 500,
+            'created_by' => $admin->id,
+        ]);
+
+        \App\Models\VoucherLine::query()->create([
+            'voucher_id' => $voucher->id,
+            'account_id' => $account->id,
+            'description' => 'Line',
+            'debit' => 500,
+            'credit' => 0,
+        ]);
+
+        $this->actingAs($admin)
+            ->deleteJson(route('erp.accounts.vouchers.destroy', $voucher), [], [
+                'Accept' => 'application/json',
+            ])
+            ->assertOk()
+            ->assertJsonPath('redirect', route('erp.accounts.vouchers.jv', [
+                'history_date' => \App\Support\ErpDate::display($voucher->voucher_date),
+            ]));
+
+        $this->assertSoftDeleted('vouchers', ['id' => $voucher->id]);
+        $this->assertNull(\App\Models\Voucher::query()->find($voucher->id));
+
+        $this->actingAs($admin)
+            ->get(route('erp.accounts.vouchers.jv', ['edit' => $voucher->id]))
+            ->assertNotFound();
     }
 
     public function test_reports_view_and_print_work_for_all_modules(): void

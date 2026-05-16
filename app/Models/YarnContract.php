@@ -4,28 +4,42 @@ namespace App\Models;
 
 use App\Services\YarnContractBalanceService;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class YarnContract extends Model
 {
+    use SoftDeletes;
     protected $fillable = [
         'contract_no',
+        'contract_code',
         'direction',
         'contract_type',
         'contract_date',
+        'payment_term',
         'party_id',
         'account_id',
+        'broker_account_id',
+        'commission_percent',
+        'brokery_percent',
+        'yarn_type',
         'item_id',
         'godown_id',
         'yarn_tag',
         'condition',
         'unit',
         'quantity',
+        'no_of_cones',
         'weight_lbs',
+        'total_kgs',
         'packing_size',
         'packing_weight',
         'rate',
+        'total_amount',
+        'total_commission',
+        'total_brokery',
+        'total_net_amount',
         'sale_rate',
         'status',
         'remarks',
@@ -36,6 +50,19 @@ class YarnContract extends Model
     protected $casts = [
         'contract_date' => 'date',
         'meta' => 'array',
+        'commission_percent' => 'decimal:4',
+        'brokery_percent' => 'decimal:4',
+        'quantity' => 'decimal:4',
+        'no_of_cones' => 'decimal:4',
+        'weight_lbs' => 'decimal:4',
+        'total_kgs' => 'decimal:4',
+        'packing_size' => 'decimal:4',
+        'packing_weight' => 'decimal:4',
+        'rate' => 'decimal:4',
+        'total_amount' => 'decimal:2',
+        'total_commission' => 'decimal:2',
+        'total_brokery' => 'decimal:2',
+        'total_net_amount' => 'decimal:2',
     ];
 
     public function party(): BelongsTo
@@ -46,6 +73,11 @@ class YarnContract extends Model
     public function account(): BelongsTo
     {
         return $this->belongsTo(Account::class);
+    }
+
+    public function broker(): BelongsTo
+    {
+        return $this->belongsTo(Account::class, 'broker_account_id');
     }
 
     public function item(): BelongsTo

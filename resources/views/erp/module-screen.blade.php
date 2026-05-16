@@ -23,9 +23,29 @@
         <div class="border-b border-slate-400 bg-[#e8e8e8] px-3 py-2 text-[12px] font-semibold text-slate-800">
             {{ $screen['code'] }} — {{ $screen['label'] }} — {{ $moduleLabel }}
         </div>
-        <form class="space-y-2 p-3" action="{{ $moduleKey === 'reports' ? route('erp.reports.view', ['screen' => $screen['slug']]) : route('erp.' . $moduleKey . '.screen.store', ['screen' => $screen['slug']]) }}" method="{{ $moduleKey === 'reports' ? 'get' : 'post' }}">
+        @php
+            $editingTransaction = $editingTransaction ?? null;
+            $formAction = $editingTransaction
+                ? route('erp.' . $moduleKey . '.screen.update', ['screen' => $screen['slug'], 'transaction' => $editingTransaction])
+                : route('erp.' . $moduleKey . '.screen.store', ['screen' => $screen['slug']]);
+        @endphp
+        <form
+            class="space-y-2 p-3"
+            action="{{ $moduleKey === 'reports' ? route('erp.reports.view', ['screen' => $screen['slug']]) : $formAction }}"
+            method="{{ $moduleKey === 'reports' ? 'get' : 'post' }}"
+            @if($moduleKey !== 'reports') data-erp-ajax-save @endif
+            @if($editingTransaction) data-erp-editing="1" @endif
+        >
             @if($moduleKey !== 'reports')
                 @csrf
+                <div data-erp-form-feedback class="hidden" aria-live="polite"></div>
+                @if ($editingTransaction)
+                    @method('PATCH')
+                    @include('erp.partials.erp-editing-banner', [
+                        'editingLabel' => $editingTransaction->trans_no,
+                        'cancelUrl' => route('erp.' . $moduleKey . '.screen', array_merge(['screen' => $screen['slug']], \App\Support\RecordHistory::historyQuery(request()))),
+                    ])
+                @endif
             @endif
             @if ($isReports)
                 <div class="grid gap-3 lg:grid-cols-[300px_minmax(0,1fr)]">
@@ -51,10 +71,18 @@
                     </section>
                 </div>
             @else
-                @include('erp.partials.screen-master-fields', ['fieldMap' => $fieldMap])
+                @include('erp.partials.screen-master-fields', [
+                    'fieldMap' => $fieldMap,
+                    'editingTransaction' => $editingTransaction,
+                    'accountParties' => $accountParties ?? collect(),
+                ])
 
                 <div class="text-[11px] font-semibold uppercase text-slate-600">Detail lines</div>
-                @include('erp.partials.screen-detail-grid', ['columns' => $columns, 'namePrefix' => 'lines'])
+                @include('erp.partials.screen-detail-grid', [
+                    'columns' => $columns,
+                    'namePrefix' => 'lines',
+                    'editingLines' => $editingTransaction?->lines ?? collect(),
+                ])
 
                 @if ($isYarn || $isGrey)
                     <div class="grid gap-2 border border-slate-300 bg-[#f6f6f6] p-2 md:grid-cols-3">
@@ -71,8 +99,9 @@
             @include('erp.partials.records-history', [
                 'historyType' => 'transaction_simple',
                 'historyTitle' => 'Saved transactions',
-                'recordsHistory' => $recordsHistory ?? null,
-                'recordsHistoryGrouped' => $recordsHistoryGrouped ?? collect(),
+                'recordsForDay' => $recordsForDay ?? collect(),
+                'historyDate' => $historyDate ?? null,
+                'historyNav' => $historyNav ?? [],
                 'moduleKey' => $moduleKey,
                 'screen' => $screen,
                 'permissionPrefix' => $permissionPrefix ?? null,

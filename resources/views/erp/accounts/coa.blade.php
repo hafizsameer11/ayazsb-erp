@@ -108,6 +108,7 @@
                                                 data-code="{{ $acc->code }}"
                                                 data-name="{{ $acc->name }}"
                                                 data-level="{{ $acc->level }}"
+                                                data-parent-id="{{ $acc->parent_id ?? '' }}"
                                                 data-active="{{ $acc->is_active ? '1' : '0' }}"
                                             >Edit</button>
                                         </td>
@@ -229,7 +230,15 @@
                 parentWrap.classList.remove('hidden');
             }
 
+            function activateCoaTab(level) {
+                const btn = document.querySelector(`.coa-tab[data-coa-tab="${level}"]`);
+                if (btn) {
+                    btn.click();
+                }
+            }
+
             function setCoaEditMode(data) {
+                activateCoaTab(data.level);
                 coaForm.action = coaUpdateUrl(data.id);
                 ensureCoaMethodInput();
                 coaAccountId.value = String(data.id);
@@ -239,8 +248,20 @@
                 coaActiveWrap.classList.remove('hidden');
                 coaIsActive.checked = data.active === '1';
                 coaSaveBtn.textContent = 'Update';
-                parentWrap.classList.add('hidden');
                 document.querySelectorAll('.coa-tab').forEach((b) => { b.disabled = true; });
+
+                if (data.level === 'head') {
+                    parentWrap.classList.add('hidden');
+                } else {
+                    parentWrap.classList.remove('hidden');
+                    syncParentOptions(data.level);
+                    if (data.parentId) {
+                        parentSelect.value = String(data.parentId);
+                    }
+                    parentSelect.disabled = false;
+                    parentSelect.required = true;
+                }
+
                 coaForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }
 
@@ -253,6 +274,7 @@
                         code: btn.dataset.code,
                         name: btn.dataset.name,
                         level: btn.dataset.level,
+                        parentId: btn.dataset.parentId || '',
                         active: btn.dataset.active,
                     });
                 });

@@ -2,59 +2,91 @@
 
 namespace App\Support;
 
-use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 
 class RecordHistory
 {
-    public const PER_PAGE_DEFAULT = 15;
-
-    public static function perPage(Request $request): int
+    public static function selectedDateStorage(Request $request): string
     {
-        $perPage = (int) $request->query('history_per_page', self::PER_PAGE_DEFAULT);
+        $parsed = ErpDate::toStorage($request->query('history_date'));
 
-        return max(5, min(50, $perPage));
+        return $parsed ?? now()->format(ErpDate::STORAGE_FORMAT);
     }
 
-    public static function applyDateRange(Builder $query, Request $request, string $dateColumn): Builder
+    public static function selectedDateDisplay(Request $request): string
     {
-        $from = ErpDate::toStorage($request->query('history_from'));
-        $to = ErpDate::toStorage($request->query('history_to'));
+        return ErpDate::display(self::selectedDateStorage($request));
+    }
 
-        if ($from !== null) {
-            $query->whereDate($dateColumn, '>=', $from);
-        }
-
-        if ($to !== null) {
-            $query->whereDate($dateColumn, '<=', $to);
-        }
-
-        return $query;
+    public static function applySelectedDate(Builder $query, Request $request, string $dateColumn): Builder
+    {
+        return $query->whereDate($dateColumn, self::selectedDateStorage($request));
     }
 
     /**
-     * @return array{recordsHistory: LengthAwarePaginator, recordsHistoryGrouped: Collection<int, Collection<int, mixed>>}
+     * @return array{
+     *     historyDate: string,
+     *     historyDateStorage: string,
+     *     recordsForDay: Collection<int, mixed>,
+     *     historyNav: array{prev: string, next: string, today: string}
+     * }
      */
-    public static function build(Request $request, Builder $query, string $dateColumn): array
-    {
-        $paginator = self::applyDateRange($query, $request, $dateColumn)
-            ->paginate(self::perPage($request))
-            ->withQueryString();
+    public static function buildForDay(
+        Request $request,
+        Builder $query,
+        string $dateColumn,
+        string $routeName,
+        array $routeParameters = [],
+    ): array {
+        $storage = self::selectedDateStorage($request);
+        $display = ErpDate::display($storage);
+        $current = Carbon::parse($storage)->startOfDay();
+
+        $records = self::applySelectedDate($query, $request, $dateColumn)->get();
+
+        $baseQuery = array_filter(
+            $request->only(['edit']),
+            static fn ($value) => $value !== null && $value !== '',
+        );
+
+        $dayParam = fn (Carbon $day): array => array_merge($baseQuery, [
+            'history_date' => $day->format(ErpDate::DISPLAY_FORMAT),
+        ]);
 
         return [
-            'recordsHistory' => $paginator,
-            'recordsHistoryGrouped' => self::groupByDate($paginator->getCollection(), $dateColumn),
+            'historyDate' => $display,
+            'historyDateStorage' => $storage,
+            'recordsForDay' => $records,
+            'historyNav' => [
+                'prev' => route($routeName, array_merge($routeParameters, $dayParam($current->copy()->subDay()))),
+                'next' => route($routeName, array_merge($routeParameters, $dayParam($current->copy()->addDay()))),
+                'today' => route($routeName, array_merge($routeParameters, $dayParam(now()->startOfDay()))),
+            ],
         ];
     }
 
-    public static function groupByDate(Collection $records, string $dateAttribute): Collection
+    public static function editUrl(Request $request, string $routeName, array $routeParameters, int $recordId): string
     {
-        return $records->groupBy(function ($record) use ($dateAttribute) {
-            $label = ErpDate::display($record->{$dateAttribute});
+        $query = array_filter([
+            'history_date' => $request->query('history_date') ?: self::selectedDateDisplay($request),
+            'edit' => $recordId,
+        ], static fn ($value) => $value !== null && $value !== '');
 
-            return $label !== '' ? $label : '—';
-        });
+        $url = route($routeName, $routeParameters);
+
+        return $query === [] ? $url : $url . '?' . http_build_query($query);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public static function historyQuery(Request $request): array
+    {
+        return array_filter([
+            'history_date' => $request->query('history_date') ?: self::selectedDateDisplay($request),
+        ], static fn ($value) => $value !== null && $value !== '');
     }
 }

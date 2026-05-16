@@ -9,14 +9,18 @@
 <div class="flex flex-wrap justify-between gap-3 border border-slate-300 bg-[#f0f0f0] p-2">
     <div class="flex flex-wrap gap-2">
         @if ($showSave)
-            @if ($permissionPrefix === null || auth()->user()?->hasPermission($permissionPrefix . '.create'))
+            @php
+                $isEditing = request()->filled('edit');
+                $savePermission = $isEditing ? '.edit' : '.create';
+            @endphp
+            @if ($permissionPrefix === null || auth()->user()?->hasPermission($permissionPrefix . $savePermission))
                 <button
                     type="submit"
                     name="submit_action"
                     value="post"
                     class="rounded border border-slate-600 bg-slate-200 px-4 py-1.5 text-[12px] font-semibold shadow-sm hover:bg-white"
                 >
-                    Save
+                    {{ $isEditing ? 'Update' : 'Save' }}
                 </button>
             @endif
         @endif
