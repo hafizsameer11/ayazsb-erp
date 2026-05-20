@@ -151,7 +151,7 @@ function isValidErpDate(value) {
 export function initErpForms() {
     initAutoUppercase();
 
-    document.querySelectorAll('.erp-date-input').forEach((input) => {
+    document.querySelectorAll('input.erp-date-input[type="text"]').forEach((input) => {
         input.addEventListener('input', () => normalizeDateInput(input));
         input.addEventListener('blur', () => {
             normalizeDateInput(input);
@@ -160,6 +160,15 @@ export function initErpForms() {
             } else {
                 input.setCustomValidity('');
             }
+        });
+    });
+
+    document.querySelectorAll('input.erp-date-picker[type="date"]').forEach((input) => {
+        input.addEventListener('change', () => {
+            input.setCustomValidity('');
+        });
+        input.addEventListener('blur', () => {
+            input.setCustomValidity('');
         });
     });
 

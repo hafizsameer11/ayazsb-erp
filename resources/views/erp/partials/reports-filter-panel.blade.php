@@ -13,11 +13,11 @@
     <div class="grid gap-2 border border-slate-400 bg-[#f4f4f4] p-2 md:grid-cols-2">
         <label class="erp-field">
             <span class="erp-label">From date</span>
-            <x-erp-date-input name="from_date" :value="request('from_date')" :default-blank="true" placeholder="All dates" />
+            <x-erp-date-input name="from_date" :value="request('from_date')" :default-blank="true" picker />
         </label>
         <label class="erp-field">
             <span class="erp-label">To date</span>
-            <x-erp-date-input name="to_date" :value="request('to_date')" :default-blank="true" placeholder="All dates" />
+            <x-erp-date-input name="to_date" :value="request('to_date')" :default-blank="true" picker />
         </label>
     </div>
 
