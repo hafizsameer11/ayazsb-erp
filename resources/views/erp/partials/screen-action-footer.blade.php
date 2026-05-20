@@ -5,6 +5,8 @@
         ->values();
     $permissionPrefix = $permissionPrefix ?? null;
     $showSave = $showSave ?? true;
+    $isReports = $isReports ?? false;
+    $reportScreen = $reportScreen ?? 'accounts';
 @endphp
 <div class="flex flex-wrap justify-between gap-3 border border-slate-300 bg-[#f0f0f0] p-2">
     <div class="flex flex-wrap gap-2">
@@ -35,9 +37,15 @@
                 };
             @endphp
             @if ($permissionPrefix === null || auth()->user()?->hasPermission($permissionPrefix . '.' . $actionPermission))
-                <button type="button" class="rounded border border-slate-600 bg-slate-200 px-4 py-1.5 text-[12px] font-semibold shadow-sm hover:bg-white">
-                    {{ $action }}
-                </button>
+                @if ($isReports && $actionKey === 'view-report')
+                    <button type="submit" class="rounded border border-slate-600 bg-slate-200 px-4 py-1.5 text-[12px] font-semibold shadow-sm hover:bg-white">{{ $action }}</button>
+                @elseif ($isReports && $actionKey === 'export')
+                    <button type="submit" formaction="{{ route('erp.reports.export', ['screen' => $reportScreen]) }}" class="rounded border border-slate-600 bg-slate-200 px-4 py-1.5 text-[12px] font-semibold shadow-sm hover:bg-white">{{ $action }}</button>
+                @elseif ($isReports && $actionKey === 'exit')
+                    <a href="{{ route('erp.reports.dashboard') }}" class="rounded border border-slate-600 bg-slate-200 px-4 py-1.5 text-[12px] font-semibold shadow-sm hover:bg-white">Exit</a>
+                @else
+                    <button type="button" class="rounded border border-slate-600 bg-slate-200 px-4 py-1.5 text-[12px] font-semibold shadow-sm hover:bg-white">{{ $action }}</button>
+                @endif
             @endif
         @endforeach
     </div>

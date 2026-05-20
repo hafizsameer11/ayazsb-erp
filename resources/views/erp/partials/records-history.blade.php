@@ -194,13 +194,24 @@
                                     </td>
                                 </tr>
                             @elseif ($historyType === 'contract')
+                                @php
+                                    $isGreyContract = ($moduleKey ?? '') === 'grey';
+                                    $contractItemLabel = $isGreyContract
+                                        ? (($record->quality?->quality_no ?? '') . ' — ' . ($record->quality?->quality_name ?? '-'))
+                                        : (($record->item?->code ?? '') . ' — ' . ($record->item?->name ?? '-'));
+                                    $contractQty = $isGreyContract ? (float) $record->qty_mtr : (float) $record->weight_lbs;
+                                    $contractRate = $isGreyContract ? (float) $record->per_mtr_rate : (float) $record->rate;
+                                    $contractDestroyRoute = $isGreyContract
+                                        ? 'erp.grey.screen.contract.destroy'
+                                        : 'erp.yarn.screen.contract.destroy';
+                                @endphp
                                 <tr>
                                     <td class="border border-slate-300 px-1 py-1 font-mono">{{ $record->contract_no }}</td>
                                     <td class="border border-slate-300 px-1 py-1">{{ $record->contract_type }}</td>
                                     <td class="border border-slate-300 px-1 py-1">{{ $record->account?->code }} — {{ $record->account?->name }}</td>
-                                    <td class="border border-slate-300 px-1 py-1">{{ $record->item?->code }} — {{ $record->item?->name }}</td>
-                                    <td class="border border-slate-300 px-1 py-1 text-right">{{ number_format((float) $record->weight_lbs, 2) }}</td>
-                                    <td class="border border-slate-300 px-1 py-1 text-right">{{ number_format((float) $record->rate, 2) }}</td>
+                                    <td class="border border-slate-300 px-1 py-1">{{ $contractItemLabel }}</td>
+                                    <td class="border border-slate-300 px-1 py-1 text-right">{{ number_format($contractQty, 2) }}</td>
+                                    <td class="border border-slate-300 px-1 py-1 text-right">{{ number_format($contractRate, 2) }}</td>
                                     <td class="border border-slate-300 px-1 py-1">{{ strtoupper($record->status) }}</td>
                                     <td class="border border-slate-300 px-1 py-1 whitespace-nowrap">
                                         @include('erp.partials.records-history-edit-link', [
@@ -208,7 +219,7 @@
                                             'editPermission' => ($permissionPrefix ?? 'yarn.purchase-contract') . '.edit',
                                         ])
                                         @include('erp.partials.records-history-delete-btn', [
-                                            'deleteUrl' => route('erp.yarn.screen.contract.destroy', ['screen' => $screen['slug'] ?? 'purchase-contract', 'contract' => $record->id]),
+                                            'deleteUrl' => route($contractDestroyRoute, ['screen' => $screen['slug'] ?? 'purchase-contract', 'contract' => $record->id]),
                                             'deleteConfirm' => 'Delete contract ' . $record->contract_no . '?',
                                         ])
                                     </td>

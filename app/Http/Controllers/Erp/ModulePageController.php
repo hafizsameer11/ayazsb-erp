@@ -13,11 +13,16 @@ use App\Models\Account;
 use App\Models\Item;
 use App\Models\Party;
 use App\Models\YarnContract;
+use App\Models\GreyConversionContract;
+use App\Models\GreyQuality;
+use App\Models\YarnCount;
+use App\Services\GreyTransactionTotalsService;
 use App\Services\PostingService;
 use App\Services\VoucherNumberService;
 use App\Services\YarnContractBalanceService;
 use App\Services\YarnContractCalculationService;
 use App\Support\RecordHistory;
+use App\Support\ReportFilters;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -35,6 +40,14 @@ class ModulePageController extends Controller
     /**
      * @var array<string, string>
      */
+    private const GREY_DEDICATED_SCREENS = [
+        'purchase' => 'purchase',
+        'sale' => 'sale',
+        'conversion-contract' => 'conversion-contract',
+        'conversion-inward' => 'conversion-inward',
+        'opening' => 'opening',
+    ];
+
     private const YARN_DEDICATED_SCREENS = [
         'purchase-contract' => 'purchase-contract',
         'purchase-contract-wise' => 'purchase-contract-wise',
@@ -88,8 +101,7 @@ class ModulePageController extends Controller
                     ['slug' => 'conversion-inward', 'label' => 'Grey Conversion Inward', 'code' => 'GREYSP_0012'],
                 ],
                 'Setup' => [
-                    ['slug' => 'master-grey', 'label' => 'Grey Master Data (Grey Master)', 'code' => 'GREYSP_0003'],
-                    ['slug' => 'master-godowns', 'label' => 'Grey Master Data (Grey Godowns)', 'code' => 'GREYSP_0003'],
+                    ['slug' => 'master-data', 'label' => 'Grey Master Data', 'code' => 'GREYSP_0003'],
                     ['slug' => 'opening', 'label' => 'Grey Opening', 'code' => 'GREYSP_0013'],
                 ],
             ],
@@ -145,6 +157,17 @@ class ModulePageController extends Controller
             }
         }
 
+        if ($module === 'grey') {
+            $legacyGreyTab = match ($screen) {
+                'master-grey' => 'master',
+                'master-godowns' => 'godowns',
+                default => null,
+            };
+            if ($legacyGreyTab !== null) {
+                return redirect()->route('erp.grey.master-data', ['tab' => $legacyGreyTab]);
+            }
+        }
+
         $definition = self::MODULES[$module] ?? abort(404);
         $screenMeta = $this->findScreen($definition['groups'], $screen);
 
@@ -158,8 +181,17 @@ class ModulePageController extends Controller
                 ->orderBy('contract_no')
                 ->get()
             : collect();
-        $accountParties = $module === 'yarn'
+        $accountParties = in_array($module, ['yarn', 'grey'], true)
             ? Account::query()->postable()->orderBy('code')->get()
+            : collect();
+        $greyQualities = $module === 'grey'
+            ? GreyQuality::query()->where('is_active', true)->orderBy('quality_no')->get()
+            : collect();
+        $conversionContracts = $module === 'grey'
+            ? GreyConversionContract::query()->with('account', 'quality')->orderByDesc('contract_date')->get()
+            : collect();
+        $yarnCounts = $module === 'grey'
+            ? YarnCount::query()->where('is_active', true)->orderBy('id')->get()
             : collect();
 
         $viewData = [
@@ -181,6 +213,9 @@ class ModulePageController extends Controller
             'contracts' => $contracts,
             'purchaseContracts' => $contracts->where('direction', 'purchase')->values(),
             'saleContracts' => $contracts->where('direction', 'sale')->values(),
+            'greyQualities' => $greyQualities,
+            'conversionContracts' => $conversionContracts,
+            'yarnCounts' => $yarnCounts,
             'issueTransactions' => $module === 'yarn'
                 ? InventoryTransaction::query()
                     ->where('module', 'yarn')
@@ -193,8 +228,8 @@ class ModulePageController extends Controller
             ...RecordHistory::buildForDay(
                 $request,
                 InventoryTransaction::query()
-                    ->where('module', $module)
-                    ->where('screen_slug', $screenMeta['slug'])
+                ->where('module', $module)
+                ->where('screen_slug', $screenMeta['slug'])
                     ->with(['account', 'party', 'yarnContract.account', 'fromYarnContract.account', 'toYarnContract.account', 'lines'])
                     ->orderByDesc('trans_date')
                     ->orderByDesc('id'),
@@ -219,15 +254,44 @@ class ModulePageController extends Controller
             ));
         }
 
+        if ($module === 'grey' && $screenMeta['slug'] === 'conversion-contract') {
+            $viewData = array_merge($viewData, RecordHistory::buildForDay(
+                $request,
+                GreyConversionContract::query()
+                    ->with(['account', 'quality'])
+                    ->orderByDesc('contract_date')
+                    ->orderByDesc('id'),
+                'contract_date',
+                'erp.grey.screen',
+                ['screen' => $screenMeta['slug']],
+            ));
+        }
+
         $viewData['editingTransaction'] = $this->resolveEditingTransaction($request, $module, $screenMeta);
-        $viewData['editingContract'] = $this->resolveEditingContract($request, $module, $screenMeta);
+        $viewData['editingContract'] = $module === 'grey'
+            ? $this->resolveEditingGreyContract($request, $screenMeta)
+            : $this->resolveEditingContract($request, $module, $screenMeta);
 
         if ($viewData['editingContract'] instanceof YarnContract) {
             $viewData['editingContract']->load(['item', 'broker', 'account']);
         }
 
+        if ($viewData['editingContract'] instanceof GreyConversionContract) {
+            $viewData['editingContract']->load(['quality', 'account', 'broker', 'checker']);
+        }
+
         if ($module === 'yarn' && isset(self::YARN_DEDICATED_SCREENS[$screenMeta['slug']])) {
             return view('erp.yarn.' . self::YARN_DEDICATED_SCREENS[$screenMeta['slug']], $viewData);
+        }
+
+        if ($module === 'grey' && isset(self::GREY_DEDICATED_SCREENS[$screenMeta['slug']])) {
+            return view('erp.grey.' . self::GREY_DEDICATED_SCREENS[$screenMeta['slug']], $viewData);
+        }
+
+        if ($module === 'reports') {
+            $viewData['postableAccounts'] = Account::query()->postable()->orderBy('code')->get();
+            $viewData['accountsReportTypes'] = ReportFilters::ACCOUNTS_REPORTS;
+            $viewData['inventoryScreenOptions'] = $this->inventoryScreenOptions($screenMeta['slug']);
         }
 
         return view('erp.module-screen', $viewData);
@@ -252,6 +316,10 @@ class ModulePageController extends Controller
 
         if ($module === 'yarn' && in_array($screenMeta['slug'], ['purchase-contract-wise', 'sale-contract-wise'], true)) {
             return $this->storeYarnContractWise($request, $screenMeta['slug'], $numberService, $contractCalculator);
+        }
+
+        if ($module === 'grey' && $screenMeta['slug'] === 'conversion-contract') {
+            return $this->storeGreyConversionContract($request);
         }
 
         $this->normalizeErpDates($request, ['trans_date']);
@@ -284,6 +352,10 @@ class ModulePageController extends Controller
 
         if ($module === 'yarn') {
             $this->validateYarnTransaction($screenMeta['slug'], $data, $balanceService);
+        }
+
+        if ($module === 'grey' && in_array($screenMeta['slug'], ['purchase', 'sale'], true)) {
+            $data = $this->mergeGreyPurchaseSaleMeta($data);
         }
 
         $postOnSubmit = in_array($data['submit_action'] ?? 'post', ['post', 'save'], true);
@@ -347,15 +419,20 @@ class ModulePageController extends Controller
                 ]);
             }
 
+            $netMetaAmount = (float) ($data['meta']['total_net_amount'] ?? 0);
             $transaction->update([
                 'total_qty' => $totalQty,
-                'total_amount' => $totalAmount,
+                'total_amount' => $netMetaAmount > 0 ? $netMetaAmount : $totalAmount,
             ]);
 
             return $transaction;
         });
 
-        return back()->with('status', "Transaction {$transaction->trans_no} " . ($postOnSubmit ? 'posted.' : 'saved.'));
+        return $this->jsonOrRedirect(
+            $request,
+            back(),
+            "Transaction {$transaction->trans_no} " . ($postOnSubmit ? 'posted.' : 'saved.')
+        );
     }
 
     public function updateScreenData(
@@ -403,6 +480,10 @@ class ModulePageController extends Controller
             'lines.*.amount' => ['nullable', 'numeric', 'min:0'],
             'lines.*.meta' => ['nullable', 'array'],
         ]);
+
+        if ($module === 'grey' && in_array($screenMeta['slug'], ['purchase', 'sale'], true)) {
+            $data = $this->mergeGreyPurchaseSaleMeta($data);
+        }
 
         if ($module === 'yarn') {
             $this->validateYarnTransaction($screenMeta['slug'], $data, $balanceService);
@@ -467,9 +548,10 @@ class ModulePageController extends Controller
                 ]);
             }
 
+            $netMetaAmount = (float) ($data['meta']['total_net_amount'] ?? 0);
             $transaction->update([
                 'total_qty' => $totalQty,
-                'total_amount' => $totalAmount,
+                'total_amount' => $netMetaAmount > 0 ? $netMetaAmount : $totalAmount,
             ]);
         });
 
@@ -477,6 +559,22 @@ class ModulePageController extends Controller
             $request,
             redirect()->route('erp.' . $module . '.screen', array_merge(['screen' => $screenMeta['slug']], $this->historyQuery($request))),
             "Transaction {$transaction->trans_no} updated."
+        );
+    }
+
+    public function updateGreyConversionContract(Request $request, string $screen, GreyConversionContract $contract): RedirectResponse|JsonResponse
+    {
+        abort_unless((string) $request->route('module') === 'grey' && $screen === 'conversion-contract', 404);
+        abort_unless($this->allowed('grey.conversion-contract.edit'), 403);
+
+        $this->normalizeErpDates($request, ['contract_date', 'completion_date']);
+        $data = $request->validate($this->greyConversionContractValidationRules($contract->id));
+        $contract->update($this->mapGreyConversionContractAttributes($data));
+
+        return $this->jsonOrRedirect(
+            $request,
+            redirect()->route('erp.grey.screen', array_merge(['screen' => $screen], $this->historyQuery($request))),
+            "Grey contract {$contract->contract_no} updated."
         );
     }
 
@@ -523,6 +621,24 @@ class ModulePageController extends Controller
             'erp.' . $module . '.screen',
             ['screen' => $screenMeta['slug']],
             "Transaction {$transNo} deleted.",
+            $historyDate,
+        );
+    }
+
+    public function destroyGreyConversionContract(Request $request, string $screen, GreyConversionContract $contract): RedirectResponse|JsonResponse
+    {
+        $this->ensureAdminCanDeleteRecords();
+        abort_unless((string) $request->route('module') === 'grey' && $screen === 'conversion-contract', 404);
+
+        $contractNo = $contract->contract_no;
+        $historyDate = \App\Support\ErpDate::display($contract->contract_date);
+        $contract->delete();
+
+        return $this->erpDeleteResponse(
+            $request,
+            'erp.grey.screen',
+            ['screen' => $screen],
+            "Grey contract {$contractNo} deleted.",
             $historyDate,
         );
     }
@@ -1015,6 +1131,108 @@ class ModulePageController extends Controller
     /**
      * @param array<string, string> $screenMeta
      */
+    private function storeGreyConversionContract(Request $request): RedirectResponse|JsonResponse
+    {
+        $this->normalizeErpDates($request, ['contract_date', 'completion_date']);
+        $data = $request->validate($this->greyConversionContractValidationRules());
+        $attributes = $this->mapGreyConversionContractAttributes($data);
+
+        $contract = GreyConversionContract::query()->updateOrCreate(
+            ['contract_no' => $data['contract_no']],
+            [...$attributes, 'created_by' => Auth::id()]
+        );
+
+        return $this->jsonOrRedirect(
+            $request,
+            back(),
+            "Grey contract {$contract->contract_no} saved."
+        );
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     * @return array<string, mixed>
+     */
+    private function mergeGreyPurchaseSaleMeta(array $data): array
+    {
+        $totals = app(GreyTransactionTotalsService::class)->calculate($data['meta'] ?? []);
+        $data['meta'] = array_merge($data['meta'] ?? [], $totals);
+        if (empty($data['meta']['voucher_type'])) {
+            $data['meta']['voucher_type'] = 'GPV';
+        }
+
+        return $data;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function greyConversionContractValidationRules(?int $ignoreId = null): array
+    {
+        return [
+            'contract_no' => ['required', 'string', 'max:80'],
+            'contract_date' => ['required', 'date', new ErpDate],
+            'status' => ['nullable', 'string', 'max:40'],
+            'account_id' => ['required', 'integer', Rule::exists('accounts', 'id')->where(fn ($q) => $q->where('level', 'sub_ledger')->where('is_active', true))],
+            'grey_quality_id' => ['nullable', 'integer', 'exists:grey_qualities,id'],
+            'loom_type' => ['nullable', 'string', 'max:80'],
+            'loom_width' => ['nullable', 'numeric', 'min:0'],
+            'qty_mtr' => ['nullable', 'numeric', 'min:0'],
+            'per_mtr_rate' => ['nullable', 'numeric', 'min:0'],
+            'brokery_rate' => ['nullable', 'numeric', 'min:0'],
+            'checker_rate' => ['nullable', 'numeric', 'min:0'],
+            'munshiana' => ['nullable', 'numeric', 'min:0'],
+            'remarks' => ['nullable', 'string', 'max:255'],
+            'warp_details' => ['nullable', 'array'],
+            'weft_details' => ['nullable', 'array'],
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     * @return array<string, mixed>
+     */
+    private function mapGreyConversionContractAttributes(array $data): array
+    {
+        $totals = app(GreyTransactionTotalsService::class)->calculateContract($data);
+
+        return [
+            'contract_date' => $data['contract_date'],
+            'status' => $data['status'] ?? 'running',
+            'account_id' => $data['account_id'],
+            'grey_quality_id' => $data['grey_quality_id'] ?? null,
+            'loom_type' => $data['loom_type'] ?? null,
+            'loom_width' => $data['loom_width'] ?? null,
+            'qty_mtr' => $data['qty_mtr'] ?? 0,
+            'per_mtr_rate' => $data['per_mtr_rate'] ?? 0,
+            'brokery_rate' => $data['brokery_rate'] ?? 0,
+            'checker_rate' => $data['checker_rate'] ?? 0,
+            'munshiana' => $data['munshiana'] ?? 0,
+            'remarks' => $data['remarks'] ?? null,
+            'warp_details' => array_values($data['warp_details'] ?? []),
+            'weft_details' => array_values($data['weft_details'] ?? []),
+            'total_amount' => $totals['total_amount'],
+            'total_brokery' => $totals['total_brokery'],
+            'total_checkery' => $totals['total_checkery'],
+            'total_munshiana' => $totals['total_munshiana'],
+            'total_net_amount' => $totals['total_net_amount'],
+        ];
+    }
+
+    private function resolveEditingGreyContract(Request $request, array $screenMeta): ?GreyConversionContract
+    {
+        $editId = $request->query('edit');
+        if ($editId === null || $editId === '' || $screenMeta['slug'] !== 'conversion-contract') {
+            return null;
+        }
+
+        $contract = GreyConversionContract::query()->find($editId);
+        abort_if($contract === null, 404);
+        abort_unless($this->allowed('grey.conversion-contract.edit'), 403);
+
+        return $contract;
+    }
+
     private function resolveEditingContract(Request $request, string $module, array $screenMeta): ?YarnContract
     {
         $editId = $request->query('edit');
@@ -1035,6 +1253,33 @@ class ModulePageController extends Controller
         abort_unless($this->allowed("yarn.{$screenMeta['slug']}.edit"), 403);
 
         return $contract;
+    }
+
+    /**
+     * @return list<array{slug: string, label: string}>
+     */
+    private function inventoryScreenOptions(string $reportScreen): array
+    {
+        $module = $reportScreen === 'grey' ? 'grey' : 'yarn';
+        $definition = self::MODULES[$module] ?? null;
+        if ($definition === null) {
+            return [];
+        }
+
+        $options = [];
+        foreach ($definition['groups'] as $items) {
+            foreach ($items as $item) {
+                if (($item['slug'] ?? '') === 'master-data') {
+                    continue;
+                }
+                $options[] = [
+                    'slug' => $item['slug'],
+                    'label' => $item['label'],
+                ];
+            }
+        }
+
+        return $options;
     }
 
     /**

@@ -483,6 +483,99 @@ class ErpWorkflowTest extends TestCase
             ->assertNotFound();
     }
 
+    public function test_grey_dedicated_screens_and_master_data_work(): void
+    {
+        $admin = \App\Models\User::query()->where('email', 'admin@erp.local')->firstOrFail();
+        $supplier = \App\Models\Account::query()->postable()->orderBy('code')->firstOrFail();
+
+        foreach (['purchase', 'sale', 'conversion-contract', 'conversion-inward', 'opening'] as $screen) {
+            $this->actingAs($admin)
+                ->get(route('erp.grey.screen', ['screen' => $screen]))
+                ->assertOk();
+        }
+
+        $this->actingAs($admin)
+            ->get(route('erp.grey.master-data'))
+            ->assertOk();
+
+        $this->actingAs($admin)
+            ->post(route('erp.grey.master-data.store'), [
+                'tab' => 'master',
+                'quality_no' => '100901',
+                'tag' => 'CONVERSION',
+                'season' => 'WINTER',
+                'is_active' => 1,
+                'reed' => 64,
+                'pick' => 60,
+                'width' => 48,
+                'total_ends' => 3000,
+                'color' => 'GREY',
+                'details' => [
+                    ['nature' => 'WARP', 'ends' => 3000, 'picks' => 60],
+                ],
+            ])
+            ->assertRedirect();
+
+        $quality = \App\Models\GreyQuality::query()->where('quality_no', '100901')->firstOrFail();
+
+        $this->actingAs($admin)
+            ->post(route('erp.grey.screen.store', ['screen' => 'purchase']), [
+                'trans_date' => now()->toDateString(),
+                'account_id' => $supplier->id,
+                'meta' => [
+                    'voucher_type' => 'GPV',
+                    'than_qty' => 10,
+                    'long_qty' => 0,
+                    'short_qty' => 2,
+                    'grey_rate_mtr' => 100,
+                    'commission_percent' => 0,
+                    'brokery_rate' => 0,
+                    'checker_rate_mtr' => 0,
+                    'munshiana' => 0,
+                ],
+                'lines' => [
+                    [
+                        'description' => 'Grey purchase',
+                        'qty' => 12,
+                        'rate' => 100,
+                        'amount' => 1200,
+                        'meta' => ['grey_quality_id' => $quality->id],
+                    ],
+                ],
+                'submit_action' => 'save',
+            ])
+            ->assertRedirect();
+
+        $transaction = \App\Models\InventoryTransaction::query()
+            ->where('module', 'grey')
+            ->where('screen_slug', 'purchase')
+            ->latest('id')
+            ->firstOrFail();
+
+        $this->actingAs($admin)
+            ->get(route('erp.grey.screen', ['screen' => 'purchase', 'edit' => $transaction->id]))
+            ->assertOk()
+            ->assertSee($transaction->trans_no, false);
+
+        $this->actingAs($admin)
+            ->patchJson(route('erp.grey.screen.update', ['screen' => 'purchase', 'transaction' => $transaction]), [
+                'trans_date' => $transaction->trans_date->toDateString(),
+                'account_id' => $supplier->id,
+                'meta' => array_merge($transaction->meta ?? [], ['than_qty' => 11]),
+                'lines' => [
+                    [
+                        'description' => 'Grey purchase',
+                        'qty' => 13,
+                        'rate' => 100,
+                        'amount' => 1300,
+                        'meta' => ['grey_quality_id' => $quality->id],
+                    ],
+                ],
+                'submit_action' => 'save',
+            ], ['Accept' => 'application/json'])
+            ->assertOk();
+    }
+
     public function test_reports_view_and_print_work_for_all_modules(): void
     {
         $admin = \App\Models\User::query()->where('email', 'admin@erp.local')->firstOrFail();
@@ -500,6 +593,65 @@ class ErpWorkflowTest extends TestCase
                 ->get(route('erp.reports.export', ['screen' => $screen]))
                 ->assertOk();
         }
+    }
+
+    public function test_account_statement_report_shows_running_balance(): void
+    {
+        $admin = \App\Models\User::query()->where('email', 'admin@erp.local')->firstOrFail();
+        $account = \App\Models\Account::query()->postable()->firstOrFail();
+        $today = now()->format('d-m-Y');
+
+        \App\Models\AccountOpening::query()->create([
+            'voucher_date' => now()->toDateString(),
+            'financial_year_id' => \App\Models\FinancialYear::query()->firstOrFail()->id,
+            'account_id' => $account->id,
+            'narration' => 'Test opening',
+            'debit' => 1000,
+            'credit' => 0,
+        ]);
+
+        $voucher = \App\Models\Voucher::query()->create([
+            'module' => 'accounts',
+            'voucher_type' => 'CP',
+            'voucher_number' => 'CP-RPT-001',
+            'voucher_date' => now()->toDateString(),
+            'status' => 'posted',
+            'total_debit' => 200,
+            'total_credit' => 200,
+            'total_amount' => 200,
+            'created_by' => $admin->id,
+        ]);
+
+        \App\Models\VoucherLine::query()->create([
+            'voucher_id' => $voucher->id,
+            'account_id' => $account->id,
+            'description' => 'Payment',
+            'debit' => 0,
+            'credit' => 200,
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('erp.reports.view', [
+                'screen' => 'accounts',
+                'report' => 'account-statement',
+                'account_id' => $account->id,
+                'from_date' => $today,
+                'to_date' => $today,
+            ]))
+            ->assertOk()
+            ->assertSee('Account Statement', false)
+            ->assertSee('OPENING BALANCE', false)
+            ->assertSee('CP-RPT-001', false);
+
+        $this->actingAs($admin)
+            ->get(route('erp.reports.view', [
+                'screen' => 'accounts',
+                'report' => 'trial-balance',
+                'from_date' => $today,
+                'to_date' => $today,
+            ]))
+            ->assertOk()
+            ->assertSee('Trial Balance', false);
     }
 }
 

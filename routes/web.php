@@ -69,10 +69,15 @@ Route::middleware('auth')->group(function () {
         Route::get('/yarn/{screen}/{transaction}/print', [ModulePageController::class, 'printScreenData'])->defaults('module', 'yarn')->name('yarn.screen.print');
 
         Route::get('/grey', [ModulePageController::class, 'dashboard'])->defaults('module', 'grey')->name('grey.dashboard');
+        Route::get('/grey/master-data', [\App\Http\Controllers\Erp\GreyMasterDataController::class, 'show'])->name('grey.master-data');
+        Route::post('/grey/master-data', [\App\Http\Controllers\Erp\GreyMasterDataController::class, 'store'])->name('grey.master-data.store');
+        Route::delete('/grey/master-data/qualities/{quality}', [\App\Http\Controllers\Erp\GreyMasterDataController::class, 'destroyQuality'])->name('grey.master-data.quality.destroy');
         Route::get('/grey/{screen}', [ModulePageController::class, 'screen'])->defaults('module', 'grey')->name('grey.screen');
         Route::post('/grey/{screen}', [ModulePageController::class, 'storeScreenData'])->defaults('module', 'grey')->name('grey.screen.store');
         Route::patch('/grey/{screen}/{transaction}', [ModulePageController::class, 'updateScreenData'])->defaults('module', 'grey')->name('grey.screen.update');
         Route::delete('/grey/{screen}/{transaction}', [ModulePageController::class, 'destroyScreenData'])->defaults('module', 'grey')->name('grey.screen.destroy');
+        Route::patch('/grey/{screen}/contracts/{contract}', [ModulePageController::class, 'updateGreyConversionContract'])->defaults('module', 'grey')->name('grey.screen.contract.update');
+        Route::delete('/grey/{screen}/contracts/{contract}', [ModulePageController::class, 'destroyGreyConversionContract'])->defaults('module', 'grey')->name('grey.screen.contract.destroy');
         Route::post('/grey/{screen}/{transaction}/post', [ModulePageController::class, 'postScreenData'])->defaults('module', 'grey')->name('grey.screen.post');
         Route::get('/grey/{screen}/{transaction}/print', [ModulePageController::class, 'printScreenData'])->defaults('module', 'grey')->name('grey.screen.print');
 

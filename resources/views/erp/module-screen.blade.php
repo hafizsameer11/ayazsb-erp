@@ -57,18 +57,7 @@
                             <li><a class="erp-tree-link" href="{{ route('erp.reports.print', ['screen' => $screen['slug']]) }}" target="_blank">Print layout</a></li>
                         </ul>
                     </section>
-                    <section class="space-y-2">
-                        <div class="grid gap-2 border border-slate-400 bg-[#f4f4f4] p-2 md:grid-cols-3">
-                            <label class="erp-field"><span class="erp-label">Dated</span><x-erp-date-input name="dated" /></label>
-                            <label class="erp-field"><span class="erp-label">From date</span><x-erp-date-input name="from_date" /></label>
-                            <label class="erp-field"><span class="erp-label">To date</span><x-erp-date-input name="to_date" /></label>
-                        </div>
-                        <div class="grid gap-2 border border-slate-400 bg-[#fdfdfd] p-2 md:grid-cols-2">
-                            @for ($i = 0; $i < 12; $i++)
-                                <input class="erp-input" type="text" name="p{{ $i + 1 }}" placeholder="Parameter {{ $i + 1 }}">
-                            @endfor
-                        </div>
-                    </section>
+                    <section class="space-y-2">@include('erp.partials.reports-filter-panel', ['screen' => $screen, 'postableAccounts' => $postableAccounts ?? collect(), 'accountsReportTypes' => $accountsReportTypes ?? \App\Support\ReportFilters::ACCOUNTS_REPORTS, 'inventoryScreenOptions' => $inventoryScreenOptions ?? []])</section>
                 </div>
             @else
                 @include('erp.partials.screen-master-fields', [
@@ -93,7 +82,13 @@
                 @endif
             @endif
 
-            @include('erp.partials.screen-action-footer', ['actions' => $actions, 'permissionPrefix' => $permissionPrefix ?? null, 'showSave' => ! $isReports])
+            @include('erp.partials.screen-action-footer', [
+                'actions' => $actions,
+                'permissionPrefix' => $permissionPrefix ?? null,
+                'showSave' => ! $isReports,
+                'isReports' => $isReports,
+                'reportScreen' => $screen['slug'] ?? 'accounts',
+            ])
         </form>
         @if (!$isReports)
             @include('erp.partials.records-history', [
