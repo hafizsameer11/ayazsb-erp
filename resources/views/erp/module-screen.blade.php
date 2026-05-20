@@ -25,14 +25,20 @@
         </div>
         @php
             $editingTransaction = $editingTransaction ?? null;
-            $formAction = $editingTransaction
-                ? route('erp.' . $moduleKey . '.screen.update', ['screen' => $screen['slug'], 'transaction' => $editingTransaction])
-                : route('erp.' . $moduleKey . '.screen.store', ['screen' => $screen['slug']]);
+            if ($isReports) {
+                $formAction = route('erp.reports.view', ['screen' => $screen['slug']]);
+                $formMethod = 'get';
+            } else {
+                $formAction = $editingTransaction
+                    ? route('erp.' . $moduleKey . '.screen.update', ['screen' => $screen['slug'], 'transaction' => $editingTransaction])
+                    : route('erp.' . $moduleKey . '.screen.store', ['screen' => $screen['slug']]);
+                $formMethod = 'post';
+            }
         @endphp
         <form
             class="space-y-2 p-3"
-            action="{{ $moduleKey === 'reports' ? route('erp.reports.view', ['screen' => $screen['slug']]) : $formAction }}"
-            method="{{ $moduleKey === 'reports' ? 'get' : 'post' }}"
+            action="{{ $formAction }}"
+            method="{{ $formMethod }}"
             @if($moduleKey !== 'reports') data-erp-ajax-save @endif
             @if($editingTransaction) data-erp-editing="1" @endif
         >
