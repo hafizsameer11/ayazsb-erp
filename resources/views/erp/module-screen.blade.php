@@ -54,16 +54,40 @@
                 @endif
             @endif
             @if ($isReports)
-                <div class="grid gap-3 lg:grid-cols-[300px_minmax(0,1fr)]">
+                @php
+                    $accountsReportTypes = $accountsReportTypes ?? \App\Support\ReportFilters::ACCOUNTS_REPORTS;
+                    $selectedReport = request('report', $screen['slug'] === 'accounts' ? 'account-statement' : 'summary');
+                    $sidebarQuery = array_filter(
+                        request()->only(['from_date', 'to_date', 'account_id', 'account_query', 'status']),
+                        static fn ($value) => $value !== null && $value !== '',
+                    );
+                @endphp
+                <div class="grid gap-3 lg:grid-cols-[220px_minmax(0,1fr)]">
                     <section class="border border-slate-400 bg-[#f5f5f5] p-2">
-                        <div class="mb-2 text-[11px] font-bold uppercase text-slate-600">Reports list</div>
-                        <ul class="space-y-0.5 text-[12px]">
-                            <li><a class="erp-tree-link" href="{{ route('erp.reports.view', ['screen' => $screen['slug']]) }}">View report</a></li>
-                            <li><a class="erp-tree-link" href="{{ route('erp.reports.export', ['screen' => $screen['slug']]) }}">Export CSV</a></li>
-                            <li><a class="erp-tree-link" href="{{ route('erp.reports.print', ['screen' => $screen['slug']]) }}" target="_blank">Print layout</a></li>
-                        </ul>
+                        @if ($screen['slug'] === 'accounts')
+                            <div class="mb-2 text-[11px] font-bold uppercase text-slate-600">Report type</div>
+                            <ul class="space-y-0.5 text-[12px]">
+                                @foreach ($accountsReportTypes as $reportKey => $reportLabel)
+                                    <li>
+                                        <a
+                                            href="{{ route('erp.reports.screen', array_merge(['screen' => 'accounts', 'report' => $reportKey], $sidebarQuery)) }}"
+                                            class="erp-tree-link block rounded px-1 py-0.5 {{ $selectedReport === $reportKey ? 'bg-sky-200 font-semibold text-sky-950 ring-1 ring-sky-500' : 'hover:bg-white' }}"
+                                        >{{ $reportLabel }}</a>
+                                    </li>
+                                @endforeach
+                            </ul>
+                        @else
+                            <div class="mb-2 text-[11px] font-bold uppercase text-slate-600">{{ $moduleLabel }}</div>
+                            <p class="text-[11px] text-slate-600">Set filters, then use View report below.</p>
+                        @endif
                     </section>
-                    <section class="space-y-2">@include('erp.partials.reports-filter-panel', ['screen' => $screen, 'postableAccounts' => $postableAccounts ?? collect(), 'accountsReportTypes' => $accountsReportTypes ?? \App\Support\ReportFilters::ACCOUNTS_REPORTS, 'inventoryScreenOptions' => $inventoryScreenOptions ?? []])</section>
+                    <section class="space-y-2">
+                        @include('erp.partials.reports-filter-panel', [
+                            'screen' => $screen,
+                            'postableAccounts' => $postableAccounts ?? collect(),
+                            'inventoryScreenOptions' => $inventoryScreenOptions ?? [],
+                        ])
+                    </section>
                 </div>
             @else
                 @include('erp.partials.screen-master-fields', [

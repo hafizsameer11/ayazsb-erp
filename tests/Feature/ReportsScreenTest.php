@@ -32,6 +32,13 @@ class ReportsScreenTest extends TestCase
         $this->actingAs($admin)
             ->get(route('erp.reports.screen', ['screen' => 'accounts']))
             ->assertOk()
-            ->assertSee('Account Statement', false);
+            ->assertSee('Account Statement', false)
+            ->assertSee('Trial Balance', false)
+            ->assertDontSee('— All / none —', false);
+
+        $this->actingAs($admin)
+            ->get(route('erp.reports.screen', ['screen' => 'accounts', 'report' => 'trial-balance']))
+            ->assertOk()
+            ->assertSee('Trial Balance', false);
     }
 }

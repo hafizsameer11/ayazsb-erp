@@ -4,12 +4,23 @@
     'required' => false,
     'readonly' => false,
     'class' => '',
+    'defaultBlank' => false,
 ])
 
 @php
     use App\Support\ErpDate;
 
-    $display = old($name, $value !== null && $value !== '' ? ErpDate::display($value) : ErpDate::todayDisplay());
+    $resolved = old($name);
+    if ($resolved === null) {
+        if ($value !== null && $value !== '') {
+            $resolved = ErpDate::display($value);
+        } elseif ($defaultBlank) {
+            $resolved = '';
+        } else {
+            $resolved = ErpDate::todayDisplay();
+        }
+    }
+    $display = $resolved;
 @endphp
 
 <input
