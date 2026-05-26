@@ -3,10 +3,13 @@
 @section('title', $screen['label'])
 
 @section('content')
-    @include('erp.yarn.partials.movement-form', [
-        'contractMode' => 'transfer',
-        'showGodownPair' => false,
-        'lineLabel' => 'Yarn contract transfer lines',
-        'defaultVoucherType' => 'BTV',
-    ])
+    @include('erp.yarn.partials.transaction-form', ['formVariant' => 'issuance-transfer'])
 @endsection
+
+@push('scripts')
+    <script>
+        window.erpYarnItems = @json($yarnItemsPayload ?? []);
+        window.erpGreyConversionContracts = @json($greyConversionContractsPayload ?? []);
+        window.erpYarnIssuances = @json($yarnIssuanceOptions ?? []);
+    </script>
+@endpush

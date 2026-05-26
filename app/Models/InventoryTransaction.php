@@ -22,6 +22,7 @@ class InventoryTransaction extends Model
         'yarn_contract_id',
         'from_yarn_contract_id',
         'to_yarn_contract_id',
+        'grey_conversion_contract_id',
         'source_transaction_id',
         'from_godown_id',
         'to_godown_id',
@@ -76,6 +77,11 @@ class InventoryTransaction extends Model
     public function toYarnContract(): BelongsTo
     {
         return $this->belongsTo(YarnContract::class, 'to_yarn_contract_id');
+    }
+
+    public function greyConversionContract(): BelongsTo
+    {
+        return $this->belongsTo(GreyConversionContract::class);
     }
 
     public function sourceTransaction(): BelongsTo

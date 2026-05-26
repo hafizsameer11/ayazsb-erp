@@ -21,12 +21,18 @@ class YarnContractBalanceService
         $transferredOut = $this->sumWeight(
             $this->postedYarnTransactions()
                 ->where('screen_slug', 'issuance-transfer')
-                ->where('from_yarn_contract_id', $contract->id)
+                ->where(function (Builder $query) use ($contract): void {
+                    $query->where('from_yarn_contract_id', $contract->id)
+                        ->orWhere('meta->from_yarn_contract_id', $contract->id);
+                })
         );
         $transferredIn = $this->sumWeight(
             $this->postedYarnTransactions()
                 ->where('screen_slug', 'issuance-transfer')
-                ->where('to_yarn_contract_id', $contract->id)
+                ->where(function (Builder $query) use ($contract): void {
+                    $query->where('to_yarn_contract_id', $contract->id)
+                        ->orWhere('meta->to_yarn_contract_id', $contract->id);
+                })
         );
         $gain = $this->sumGainShortage($contract, 'gain');
         $shortage = $this->sumGainShortage($contract, 'shortage');
@@ -76,7 +82,10 @@ class YarnContractBalanceService
     {
         return $this->postedYarnTransactions()
             ->whereIn('screen_slug', $screens)
-            ->where('yarn_contract_id', $contract->id);
+            ->where(function (Builder $query) use ($contract): void {
+                $query->where('yarn_contract_id', $contract->id)
+                    ->orWhere('meta->yarn_contract_id', $contract->id);
+            });
     }
 
     private function postedYarnTransactions(): Builder

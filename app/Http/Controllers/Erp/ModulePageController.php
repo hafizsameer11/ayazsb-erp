@@ -17,6 +17,7 @@ use App\Models\GreyConversionContract;
 use App\Models\GreyQuality;
 use App\Models\YarnCount;
 use App\Services\GreyTransactionTotalsService;
+use App\Services\YarnStockAvailabilityService;
 use App\Services\PostingService;
 use App\Services\VoucherNumberService;
 use App\Services\YarnContractBalanceService;
@@ -51,13 +52,16 @@ class ModulePageController extends Controller
     private const YARN_DEDICATED_SCREENS = [
         'purchase-contract' => 'purchase-contract',
         'purchase-contract-wise' => 'purchase-contract-wise',
+        'purchase-without-contract' => 'purchase-without-contract',
         'sale-contract' => 'sale-contract',
         'sale-contract-wise' => 'sale-contract-wise',
+        'sale-without-contract' => 'sale-without-contract',
         'issuance' => 'issuance',
         'issuance-return' => 'issuance-return',
         'issuance-transfer' => 'issuance-transfer',
         'godown-transfer' => 'godown-transfer',
         'gain-shortage' => 'gain-shortage',
+        'opening' => 'opening',
     ];
 
     /**
@@ -220,7 +224,7 @@ class ModulePageController extends Controller
                 ? InventoryTransaction::query()
                     ->where('module', 'yarn')
                     ->where('screen_slug', 'issuance')
-                    ->with('yarnContract.account')
+                    ->with(['account', 'greyConversionContract.quality', 'lines.item'])
                     ->latest()
                     ->limit(50)
                     ->get()
@@ -267,7 +271,32 @@ class ModulePageController extends Controller
             ));
         }
 
+        if ($module === 'yarn') {
+            $stockService = app(YarnStockAvailabilityService::class);
+            $greyContracts = GreyConversionContract::query()
+                ->with(['account', 'quality'])
+                ->orderByDesc('contract_date')
+                ->orderByDesc('id')
+                ->get();
+            $viewData['yarnItemsPayload'] = $stockService->yarnItemsPayload();
+            $viewData['yarnIssuanceOptions'] = $stockService->issuanceOptionsPayload();
+            $viewData['issuancePartyAccountIds'] = $stockService->issuancePartyAccountIds();
+            $viewData['greyConversionContracts'] = $greyContracts;
+            $viewData['greyConversionContractsPayload'] = $greyContracts->map(fn (GreyConversionContract $c) => [
+                'id' => $c->id,
+                'account_id' => $c->account_id,
+                'contract_no' => $c->contract_no,
+                'contract_code' => $c->contract_code,
+                'contract_date' => $c->contract_date?->format('Y-m-d'),
+                'grey_quality_no' => $c->quality?->quality_no,
+                'qty_mtr' => $c->qty_mtr,
+            ])->values();
+        }
+
         $viewData['editingTransaction'] = $this->resolveEditingTransaction($request, $module, $screenMeta);
+        if ($viewData['editingTransaction'] instanceof InventoryTransaction) {
+            $viewData['editingTransaction']->load(['lines.item', 'greyConversionContract.quality', 'sourceTransaction.lines']);
+        }
         $viewData['editingContract'] = $module === 'grey'
             ? $this->resolveEditingGreyContract($request, $screenMeta)
             : $this->resolveEditingContract($request, $module, $screenMeta);
@@ -318,6 +347,14 @@ class ModulePageController extends Controller
             return $this->storeYarnContractWise($request, $screenMeta['slug'], $numberService, $contractCalculator);
         }
 
+        if ($module === 'yarn' && in_array($screenMeta['slug'], ['purchase-without-contract', 'sale-without-contract'], true)) {
+            return $this->storeYarnWithoutContract($request, $screenMeta['slug'], $numberService, $contractCalculator);
+        }
+
+        if ($module === 'yarn' && $screenMeta['slug'] === 'opening') {
+            return $this->storeYarnOpening($request, $numberService, $contractCalculator);
+        }
+
         if ($module === 'grey' && $screenMeta['slug'] === 'conversion-contract') {
             return $this->storeGreyConversionContract($request);
         }
@@ -330,6 +367,9 @@ class ModulePageController extends Controller
             'account_id' => ['nullable', 'integer', Rule::exists('accounts', 'id')->where(fn ($q) => $q->where('level', 'sub_ledger')->where('is_active', true))],
             'from_account_id' => ['nullable', 'integer', Rule::exists('accounts', 'id')->where(fn ($q) => $q->where('level', 'sub_ledger')->where('is_active', true))],
             'to_account_id' => ['nullable', 'integer', Rule::exists('accounts', 'id')->where(fn ($q) => $q->where('level', 'sub_ledger')->where('is_active', true))],
+            'grey_conversion_contract_id' => ['nullable', 'integer', 'exists:grey_conversion_contracts,id'],
+            'to_grey_conversion_contract_id' => ['nullable', 'integer', 'exists:grey_conversion_contracts,id'],
+            'broker_account_id' => ['nullable', 'integer', Rule::exists('accounts', 'id')->where(fn ($q) => $q->where('level', 'sub_ledger')->where('is_active', true))],
             'yarn_contract_id' => ['nullable', 'integer', 'exists:yarn_contracts,id'],
             'from_yarn_contract_id' => ['nullable', 'integer', 'exists:yarn_contracts,id'],
             'to_yarn_contract_id' => ['nullable', 'integer', 'exists:yarn_contracts,id'],
@@ -351,6 +391,7 @@ class ModulePageController extends Controller
         ]);
 
         if ($module === 'yarn') {
+            $data = $this->enrichYarnLinePayload($screenMeta['slug'], $data, $contractCalculator);
             $this->validateYarnTransaction($screenMeta['slug'], $data, $balanceService);
         }
 
@@ -371,6 +412,22 @@ class ModulePageController extends Controller
             $fromContract = isset($data['from_yarn_contract_id'])
                 ? YarnContract::query()->find($data['from_yarn_contract_id'])
                 : null;
+            $greyContractId = $data['grey_conversion_contract_id']
+                ?? $data['to_grey_conversion_contract_id']
+                ?? null;
+            $linkedYarnContractId = $data['yarn_contract_id']
+                ?? data_get($data, 'meta.yarn_contract_id')
+                ?? null;
+            if ($screenMeta['slug'] === 'issuance-transfer' && ! empty($data['source_transaction_id'])) {
+                $source = InventoryTransaction::query()->find($data['source_transaction_id']);
+                $linkedYarnContractId = $linkedYarnContractId
+                    ?? $source?->meta['yarn_contract_id']
+                    ?? null;
+                $data['meta'] = array_merge($data['meta'] ?? [], [
+                    'from_yarn_contract_id' => $linkedYarnContractId,
+                    'to_yarn_contract_id' => data_get($data, 'meta.to_yarn_contract_id'),
+                ]);
+            }
             $transaction = InventoryTransaction::query()->create([
                 'module' => $module,
                 'screen_slug' => $screenMeta['slug'],
@@ -380,9 +437,12 @@ class ModulePageController extends Controller
                 'account_id' => $data['account_id'] ?? $primaryContract?->account_id ?? $fromContract?->account_id,
                 'from_account_id' => $data['from_account_id'] ?? $fromContract?->account_id,
                 'to_account_id' => $data['to_account_id'] ?? (isset($data['to_yarn_contract_id']) ? YarnContract::query()->find($data['to_yarn_contract_id'])?->account_id : null),
-                'yarn_contract_id' => $data['yarn_contract_id'] ?? null,
-                'from_yarn_contract_id' => $data['from_yarn_contract_id'] ?? null,
-                'to_yarn_contract_id' => $data['to_yarn_contract_id'] ?? null,
+                'yarn_contract_id' => $linkedYarnContractId,
+                'from_yarn_contract_id' => $screenMeta['slug'] === 'issuance-transfer'
+                    ? $linkedYarnContractId
+                    : ($data['from_yarn_contract_id'] ?? null),
+                'to_yarn_contract_id' => $data['to_yarn_contract_id'] ?? data_get($data, 'meta.to_yarn_contract_id'),
+                'grey_conversion_contract_id' => $greyContractId,
                 'source_transaction_id' => $data['source_transaction_id'] ?? null,
                 'from_godown_id' => $data['from_godown_id'] ?? $primaryContract?->godown_id,
                 'to_godown_id' => $data['to_godown_id'] ?? null,
@@ -453,6 +513,14 @@ class ModulePageController extends Controller
             return $this->updateYarnContractWise($request, $screenMeta['slug'], $transaction, $contractCalculator);
         }
 
+        if ($module === 'yarn' && in_array($screenMeta['slug'], ['purchase-without-contract', 'sale-without-contract'], true)) {
+            return $this->updateYarnWithoutContract($request, $screenMeta['slug'], $transaction, $contractCalculator);
+        }
+
+        if ($module === 'yarn' && $screenMeta['slug'] === 'opening') {
+            return $this->updateYarnOpening($request, $transaction, $contractCalculator);
+        }
+
         $this->normalizeErpDates($request, ['trans_date']);
 
         $data = $request->validate([
@@ -461,6 +529,11 @@ class ModulePageController extends Controller
             'account_id' => ['nullable', 'integer', Rule::exists('accounts', 'id')->where(fn ($q) => $q->where('level', 'sub_ledger')->where('is_active', true))],
             'from_account_id' => ['nullable', 'integer', Rule::exists('accounts', 'id')->where(fn ($q) => $q->where('level', 'sub_ledger')->where('is_active', true))],
             'to_account_id' => ['nullable', 'integer', Rule::exists('accounts', 'id')->where(fn ($q) => $q->where('level', 'sub_ledger')->where('is_active', true))],
+            'grey_conversion_contract_id' => ['nullable', 'integer', 'exists:grey_conversion_contracts,id'],
+            'to_grey_conversion_contract_id' => ['nullable', 'integer', 'exists:grey_conversion_contracts,id'],
+            'grey_conversion_contract_id' => ['nullable', 'integer', 'exists:grey_conversion_contracts,id'],
+            'to_grey_conversion_contract_id' => ['nullable', 'integer', 'exists:grey_conversion_contracts,id'],
+            'broker_account_id' => ['nullable', 'integer', Rule::exists('accounts', 'id')->where(fn ($q) => $q->where('level', 'sub_ledger')->where('is_active', true))],
             'yarn_contract_id' => ['nullable', 'integer', 'exists:yarn_contracts,id'],
             'from_yarn_contract_id' => ['nullable', 'integer', 'exists:yarn_contracts,id'],
             'to_yarn_contract_id' => ['nullable', 'integer', 'exists:yarn_contracts,id'],
@@ -486,6 +559,7 @@ class ModulePageController extends Controller
         }
 
         if ($module === 'yarn') {
+            $data = $this->enrichYarnLinePayload($screenMeta['slug'], $data, $contractCalculator);
             $this->validateYarnTransaction($screenMeta['slug'], $data, $balanceService);
         }
 
@@ -501,6 +575,9 @@ class ModulePageController extends Controller
             $fromContract = isset($data['from_yarn_contract_id'])
                 ? YarnContract::query()->find($data['from_yarn_contract_id'])
                 : null;
+            $greyContractId = $data['grey_conversion_contract_id']
+                ?? $data['to_grey_conversion_contract_id']
+                ?? null;
 
             $transaction->update([
                 'trans_date' => $data['trans_date'],
@@ -511,6 +588,7 @@ class ModulePageController extends Controller
                 'yarn_contract_id' => $data['yarn_contract_id'] ?? null,
                 'from_yarn_contract_id' => $data['from_yarn_contract_id'] ?? null,
                 'to_yarn_contract_id' => $data['to_yarn_contract_id'] ?? null,
+                'grey_conversion_contract_id' => $greyContractId,
                 'source_transaction_id' => $data['source_transaction_id'] ?? null,
                 'from_godown_id' => $data['from_godown_id'] ?? $primaryContract?->godown_id,
                 'to_godown_id' => $data['to_godown_id'] ?? null,
@@ -976,18 +1054,31 @@ class ModulePageController extends Controller
      */
     private function validateYarnTransaction(string $screen, array $data, YarnContractBalanceService $balanceService): void
     {
-        if (in_array($screen, ['purchase-contract-wise', 'sale-contract-wise', 'issuance', 'issuance-return', 'gain-shortage'], true)
+        if (in_array($screen, ['purchase-contract-wise', 'sale-contract-wise', 'gain-shortage'], true)
             && empty($data['yarn_contract_id'])) {
             throw ValidationException::withMessages(['yarn_contract_id' => 'Select a yarn contract.']);
         }
 
-        if ($screen === 'issuance-transfer') {
-            if (empty($data['from_yarn_contract_id']) || empty($data['to_yarn_contract_id'])) {
-                throw ValidationException::withMessages(['from_yarn_contract_id' => 'Select both from and to contracts.']);
-            }
+        if ($screen === 'issuance' && empty($data['grey_conversion_contract_id'])) {
+            throw ValidationException::withMessages(['grey_conversion_contract_id' => 'Select a grey conversion contract.']);
+        }
 
-            if ((int) $data['from_yarn_contract_id'] === (int) $data['to_yarn_contract_id']) {
-                throw ValidationException::withMessages(['to_yarn_contract_id' => 'From and to contracts must be different.']);
+        if ($screen === 'issuance-return' && empty($data['source_transaction_id'])) {
+            throw ValidationException::withMessages(['source_transaction_id' => 'Select a yarn issuance.']);
+        }
+
+        if ($screen === 'issuance-transfer') {
+            if (empty($data['from_account_id']) || empty($data['source_transaction_id']) || empty($data['to_account_id'])) {
+                throw ValidationException::withMessages(['source_transaction_id' => 'Select from party, issuance, and to party.']);
+            }
+            if (empty($data['to_grey_conversion_contract_id']) && empty($data['grey_conversion_contract_id'])) {
+                throw ValidationException::withMessages(['to_grey_conversion_contract_id' => 'Select a grey conversion contract for the destination.']);
+            }
+        }
+
+        if ($screen === 'opening') {
+            if (empty($data['account_id']) || empty($data['from_godown_id'])) {
+                throw ValidationException::withMessages(['account_id' => 'Party and godown are required for yarn opening.']);
             }
         }
 
@@ -1006,12 +1097,16 @@ class ModulePageController extends Controller
             return;
         }
 
-        if (in_array($screen, ['issuance', 'sale-contract-wise'], true)) {
+        if (in_array($screen, ['sale-contract-wise'], true)) {
             $this->ensureAvailableContractWeight((int) $data['yarn_contract_id'], $balanceService->transactionWeight($lines), $balanceService);
         }
 
-        if ($screen === 'issuance-transfer') {
-            $this->ensureAvailableContractWeight((int) $data['from_yarn_contract_id'], $balanceService->transactionWeight($lines), $balanceService);
+        if ($screen === 'issuance') {
+            $this->validateYarnStockForLines($lines);
+        }
+
+        if ($screen === 'issuance-return' && ! empty($data['source_transaction_id'])) {
+            $this->validateReturnAgainstIssuance((int) $data['source_transaction_id'], $lines);
         }
 
         if ($screen === 'gain-shortage') {
@@ -1131,6 +1226,407 @@ class ModulePageController extends Controller
     /**
      * @param array<string, string> $screenMeta
      */
+    private function storeYarnWithoutContract(
+        Request $request,
+        string $screen,
+        VoucherNumberService $numberService,
+        YarnContractCalculationService $calculator,
+    ): RedirectResponse|JsonResponse {
+        $this->normalizeErpDates($request, ['trans_date']);
+        $data = $request->validate($this->yarnWithoutContractValidationRules());
+        $item = Item::query()->findOrFail($data['item_id']);
+        if (empty($data['packing_size'])) {
+            $data['packing_size'] = $item->pack_size_cones ?? 0;
+        }
+
+        $totals = $calculator->calculate([
+            'quantity' => $data['quantity'],
+            'no_of_cones' => $data['no_of_cones'] ?? 0,
+            'packing_size' => $data['packing_size'],
+            'rate' => $data['rate'],
+            'commission_percent' => $data['commission_percent'] ?? 0,
+            'brokery_percent' => $data['brokery_percent'] ?? 0,
+        ]);
+
+        $voucherType = $screen === 'sale-without-contract' ? 'YSV' : 'YPV';
+        $meta = array_merge($data['meta'] ?? [], [
+            'voucher_type' => $data['meta']['voucher_type'] ?? $voucherType,
+            'item_id' => $data['item_id'],
+            'broker_account_id' => $data['broker_account_id'] ?? null,
+            'packing_size' => $data['packing_size'],
+            'quantity' => $data['quantity'],
+            'no_of_cones' => $data['no_of_cones'] ?? 0,
+            'rate' => $data['rate'],
+            'commission_percent' => $data['commission_percent'] ?? 0,
+            'brokery_percent' => $data['brokery_percent'] ?? 0,
+            'yarn_type' => $data['yarn_type'] ?? 'any',
+            'weight_lbs' => $totals['weight_lbs'],
+            'total_kgs' => $totals['total_kgs'],
+            'total_amount' => $totals['total_amount'],
+            'total_commission' => $totals['total_commission'],
+            'total_brokery' => $totals['total_brokery'],
+            'total_net_amount' => $totals['total_net_amount'],
+        ]);
+
+        $postOnSubmit = in_array($data['submit_action'] ?? 'post', ['post', 'save'], true);
+        if ($postOnSubmit) {
+            abort_unless($this->allowed("yarn.{$screen}.post"), 403);
+        }
+
+        $transaction = DB::transaction(function () use ($data, $screen, $numberService, $totals, $meta, $postOnSubmit, $item) {
+            $transaction = InventoryTransaction::query()->create([
+                'module' => 'yarn',
+                'screen_slug' => $screen,
+                'trans_no' => $numberService->nextTransaction('yarn', $screen),
+                'trans_date' => $data['trans_date'],
+                'account_id' => $data['account_id'],
+                'from_godown_id' => $data['from_godown_id'],
+                'remarks' => $data['remarks'] ?? null,
+                'status' => $postOnSubmit ? 'posted' : 'draft',
+                'meta' => $meta,
+                'total_qty' => $data['quantity'],
+                'total_amount' => $totals['total_net_amount'],
+                'created_by' => Auth::id(),
+            ]);
+
+            InventoryTransactionLine::query()->create([
+                'inventory_transaction_id' => $transaction->id,
+                'item_id' => $data['item_id'],
+                'description' => $item->name,
+                'qty' => $data['quantity'],
+                'unit' => 'BAGS',
+                'weight_lbs' => $totals['weight_lbs'],
+                'rate' => $data['rate'],
+                'amount' => $totals['total_net_amount'],
+                'meta' => ['no_of_cones' => $data['no_of_cones'] ?? 0, 'yarn_type' => $data['yarn_type'] ?? 'any'],
+            ]);
+
+            return $transaction;
+        });
+
+        return $this->jsonOrRedirect($request, back(), "Transaction {$transaction->trans_no} " . ($postOnSubmit ? 'posted.' : 'saved.'));
+    }
+
+    private function updateYarnWithoutContract(
+        Request $request,
+        string $screen,
+        InventoryTransaction $transaction,
+        YarnContractCalculationService $calculator,
+    ): RedirectResponse|JsonResponse {
+        $this->normalizeErpDates($request, ['trans_date']);
+        $data = $request->validate($this->yarnWithoutContractValidationRules());
+        $item = Item::query()->findOrFail($data['item_id']);
+        if (empty($data['packing_size'])) {
+            $data['packing_size'] = $item->pack_size_cones ?? 0;
+        }
+
+        $totals = $calculator->calculate([
+            'quantity' => $data['quantity'],
+            'no_of_cones' => $data['no_of_cones'] ?? 0,
+            'packing_size' => $data['packing_size'],
+            'rate' => $data['rate'],
+            'commission_percent' => $data['commission_percent'] ?? 0,
+            'brokery_percent' => $data['brokery_percent'] ?? 0,
+        ]);
+
+        $meta = array_merge($transaction->meta ?? [], $data['meta'] ?? [], [
+            'item_id' => $data['item_id'],
+            'broker_account_id' => $data['broker_account_id'] ?? null,
+            'packing_size' => $data['packing_size'],
+            'quantity' => $data['quantity'],
+            'no_of_cones' => $data['no_of_cones'] ?? 0,
+            'rate' => $data['rate'],
+            'commission_percent' => $data['commission_percent'] ?? 0,
+            'brokery_percent' => $data['brokery_percent'] ?? 0,
+            'yarn_type' => $data['yarn_type'] ?? 'any',
+            'weight_lbs' => $totals['weight_lbs'],
+            'total_kgs' => $totals['total_kgs'],
+            'total_amount' => $totals['total_amount'],
+            'total_commission' => $totals['total_commission'],
+            'total_brokery' => $totals['total_brokery'],
+            'total_net_amount' => $totals['total_net_amount'],
+        ]);
+
+        $postOnSubmit = in_array($data['submit_action'] ?? 'post', ['post', 'save'], true);
+
+        DB::transaction(function () use ($data, $transaction, $totals, $meta, $postOnSubmit, $item): void {
+            $transaction->update([
+                'trans_date' => $data['trans_date'],
+                'account_id' => $data['account_id'],
+                'from_godown_id' => $data['from_godown_id'],
+                'remarks' => $data['remarks'] ?? null,
+                'status' => $postOnSubmit ? 'posted' : $transaction->status,
+                'meta' => $meta,
+                'total_qty' => $data['quantity'],
+                'total_amount' => $totals['total_net_amount'],
+            ]);
+            $transaction->lines()->delete();
+            InventoryTransactionLine::query()->create([
+                'inventory_transaction_id' => $transaction->id,
+                'item_id' => $data['item_id'],
+                'description' => $item->name,
+                'qty' => $data['quantity'],
+                'unit' => 'BAGS',
+                'weight_lbs' => $totals['weight_lbs'],
+                'rate' => $data['rate'],
+                'amount' => $totals['total_net_amount'],
+                'meta' => ['no_of_cones' => $data['no_of_cones'] ?? 0, 'yarn_type' => $data['yarn_type'] ?? 'any'],
+            ]);
+        });
+
+        return $this->jsonOrRedirect(
+            $request,
+            redirect()->route('erp.yarn.screen', array_merge(['screen' => $screen], $this->historyQuery($request))),
+            "Transaction {$transaction->trans_no} updated."
+        );
+    }
+
+    private function storeYarnOpening(
+        Request $request,
+        VoucherNumberService $numberService,
+        YarnContractCalculationService $calculator,
+    ): RedirectResponse|JsonResponse {
+        $this->normalizeErpDates($request, ['trans_date']);
+        $data = $request->validate($this->yarnOpeningValidationRules());
+        $data = $this->enrichYarnLinePayload('opening', $data, $calculator);
+
+        $postOnSubmit = in_array($data['submit_action'] ?? 'post', ['post', 'save'], true);
+        if ($postOnSubmit) {
+            abort_unless($this->allowed('yarn.opening.post'), 403);
+        }
+
+        $transaction = DB::transaction(function () use ($data, $numberService, $postOnSubmit, $calculator) {
+            $transaction = InventoryTransaction::query()->create([
+                'module' => 'yarn',
+                'screen_slug' => 'opening',
+                'trans_no' => $numberService->nextTransaction('yarn', 'opening'),
+                'trans_date' => $data['trans_date'],
+                'account_id' => $data['account_id'],
+                'from_godown_id' => $data['from_godown_id'],
+                'remarks' => $data['remarks'] ?? null,
+                'status' => $postOnSubmit ? 'posted' : 'draft',
+                'meta' => $data['meta'] ?? [],
+                'created_by' => Auth::id(),
+            ]);
+
+            $totalQty = 0.0;
+            $totalAmount = 0.0;
+            foreach ($data['lines'] as $line) {
+                if (empty($line['item_id'])) {
+                    continue;
+                }
+                $totalQty += (float) ($line['qty'] ?? 0);
+                $totalAmount += (float) ($line['amount'] ?? 0);
+                InventoryTransactionLine::query()->create([
+                    'inventory_transaction_id' => $transaction->id,
+                    'item_id' => $line['item_id'],
+                    'description' => Item::query()->find($line['item_id'])?->name,
+                    'qty' => $line['qty'] ?? 0,
+                    'unit' => 'BAGS',
+                    'weight_lbs' => $line['weight_lbs'] ?? 0,
+                    'rate' => $line['rate'] ?? 0,
+                    'amount' => $line['amount'] ?? 0,
+                    'meta' => $line['meta'] ?? [],
+                ]);
+            }
+
+            $transaction->update(['total_qty' => $totalQty, 'total_amount' => $totalAmount]);
+
+            return $transaction;
+        });
+
+        return $this->jsonOrRedirect($request, back(), "Transaction {$transaction->trans_no} " . ($postOnSubmit ? 'posted.' : 'saved.'));
+    }
+
+    private function updateYarnOpening(
+        Request $request,
+        InventoryTransaction $transaction,
+        YarnContractCalculationService $calculator,
+    ): RedirectResponse|JsonResponse {
+        $this->normalizeErpDates($request, ['trans_date']);
+        $data = $request->validate($this->yarnOpeningValidationRules());
+        $data = $this->enrichYarnLinePayload('opening', $data, $calculator);
+        $postOnSubmit = in_array($data['submit_action'] ?? 'post', ['post', 'save'], true);
+
+        DB::transaction(function () use ($data, $transaction, $postOnSubmit): void {
+            $transaction->update([
+                'trans_date' => $data['trans_date'],
+                'account_id' => $data['account_id'],
+                'from_godown_id' => $data['from_godown_id'],
+                'remarks' => $data['remarks'] ?? null,
+                'status' => $postOnSubmit ? 'posted' : $transaction->status,
+                'meta' => $data['meta'] ?? [],
+            ]);
+            $transaction->lines()->delete();
+            $totalQty = 0.0;
+            $totalAmount = 0.0;
+            foreach ($data['lines'] as $line) {
+                if (empty($line['item_id'])) {
+                    continue;
+                }
+                $totalQty += (float) ($line['qty'] ?? 0);
+                $totalAmount += (float) ($line['amount'] ?? 0);
+                InventoryTransactionLine::query()->create([
+                    'inventory_transaction_id' => $transaction->id,
+                    'item_id' => $line['item_id'],
+                    'description' => Item::query()->find($line['item_id'])?->name,
+                    'qty' => $line['qty'] ?? 0,
+                    'unit' => 'BAGS',
+                    'weight_lbs' => $line['weight_lbs'] ?? 0,
+                    'rate' => $line['rate'] ?? 0,
+                    'amount' => $line['amount'] ?? 0,
+                    'meta' => $line['meta'] ?? [],
+                ]);
+            }
+            $transaction->update(['total_qty' => $totalQty, 'total_amount' => $totalAmount]);
+        });
+
+        return $this->jsonOrRedirect(
+            $request,
+            redirect()->route('erp.yarn.screen', array_merge(['screen' => 'opening'], $this->historyQuery($request))),
+            "Transaction {$transaction->trans_no} updated."
+        );
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function yarnWithoutContractValidationRules(): array
+    {
+        return [
+            'trans_date' => ['required', 'date', new ErpDate],
+            'account_id' => ['required', 'integer', Rule::exists('accounts', 'id')->where(fn ($q) => $q->where('level', 'sub_ledger')->where('is_active', true))],
+            'from_godown_id' => ['required', 'integer', 'exists:godowns,id'],
+            'broker_account_id' => ['nullable', 'integer', Rule::exists('accounts', 'id')->where(fn ($q) => $q->where('level', 'sub_ledger')->where('is_active', true))],
+            'commission_percent' => ['nullable', 'numeric', 'min:0'],
+            'brokery_percent' => ['nullable', 'numeric', 'min:0'],
+            'yarn_type' => ['nullable', 'string', Rule::in(['any', 'warp', 'weft'])],
+            'item_id' => ['required', 'integer', 'exists:items,id'],
+            'packing_size' => ['nullable', 'numeric', 'min:0'],
+            'quantity' => ['required', 'numeric', 'min:0'],
+            'no_of_cones' => ['nullable', 'numeric', 'min:0'],
+            'rate' => ['required', 'numeric', 'min:0'],
+            'remarks' => ['nullable', 'string', 'max:255'],
+            'submit_action' => ['nullable', 'string'],
+            'meta' => ['nullable', 'array'],
+            'meta.voucher_type' => ['nullable', 'string', 'max:20'],
+            'meta.do_no' => ['nullable', 'string', 'max:80'],
+            'meta.bility_no' => ['nullable', 'string', 'max:80'],
+            'meta.vehicle_no' => ['nullable', 'string', 'max:80'],
+            'meta.driver_name' => ['nullable', 'string', 'max:120'],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function yarnOpeningValidationRules(): array
+    {
+        return [
+            'trans_date' => ['required', 'date', new ErpDate],
+            'account_id' => ['required', 'integer', Rule::exists('accounts', 'id')->where(fn ($q) => $q->where('level', 'sub_ledger')->where('is_active', true))],
+            'from_godown_id' => ['required', 'integer', 'exists:godowns,id'],
+            'remarks' => ['nullable', 'string', 'max:255'],
+            'submit_action' => ['nullable', 'string'],
+            'meta' => ['nullable', 'array'],
+            'lines' => ['required', 'array', 'min:1'],
+            'lines.*.item_id' => ['nullable', 'integer', 'exists:items,id'],
+            'lines.*.qty' => ['nullable', 'numeric', 'min:0'],
+            'lines.*.rate' => ['nullable', 'numeric', 'min:0'],
+            'lines.*.amount' => ['nullable', 'numeric', 'min:0'],
+            'lines.*.weight_lbs' => ['nullable', 'numeric', 'min:0'],
+            'lines.*.meta' => ['nullable', 'array'],
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     * @return array<string, mixed>
+     */
+    private function enrichYarnLinePayload(string $screen, array $data, YarnContractCalculationService $calculator): array
+    {
+        if (! in_array($screen, ['opening', 'issuance', 'issuance-return', 'issuance-transfer', 'godown-transfer', 'gain-shortage'], true)) {
+            return $data;
+        }
+
+        $lines = [];
+        foreach ($data['lines'] ?? [] as $line) {
+            if (empty($line['item_id']) && empty($line['description'])) {
+                continue;
+            }
+            $packingSize = (float) ($line['meta']['packing_size'] ?? 0);
+            if ($packingSize <= 0 && ! empty($line['item_id'])) {
+                $packingSize = (float) (Item::query()->find($line['item_id'])?->pack_size_cones ?? 0);
+            }
+            $totals = $calculator->calculate([
+                'no_of_bags' => $line['qty'] ?? 0,
+                'no_of_cones' => $line['meta']['no_of_cones'] ?? $line['meta']['cones'] ?? 0,
+                'packing_size' => $packingSize,
+                'rate' => $line['rate'] ?? 0,
+            ]);
+            $line['weight_lbs'] = $totals['weight_lbs'];
+            $line['amount'] = $totals['total_amount'];
+            $line['meta'] = array_merge($line['meta'] ?? [], [
+                'packing_size' => $packingSize,
+                'total_kgs' => $totals['total_kgs'],
+                'no_of_cones' => $line['meta']['no_of_cones'] ?? $line['meta']['cones'] ?? 0,
+            ]);
+            $lines[] = $line;
+        }
+
+        if ($screen === 'opening' && $lines === []) {
+            throw ValidationException::withMessages(['lines' => 'Add at least one yarn opening line.']);
+        }
+
+        $data['lines'] = $lines;
+
+        return $data;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $lines
+     */
+    private function validateYarnStockForLines(array $lines): void
+    {
+        $stockByItem = collect(app(YarnStockAvailabilityService::class)->yarnItemsPayload())->keyBy('id');
+
+        foreach ($lines as $line) {
+            if (empty($line['item_id'])) {
+                continue;
+            }
+            $stock = $stockByItem->get($line['item_id']);
+            if (! $stock) {
+                continue;
+            }
+            $requestedBags = (float) ($line['qty'] ?? 0);
+            if ($requestedBags > ((float) $stock['available_bags'] + 0.0001)) {
+                throw ValidationException::withMessages([
+                    'lines' => "Bags for yarn {$stock['code']} exceed available stock ({$stock['available_bags']} bags).",
+                ]);
+            }
+        }
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $lines
+     */
+    private function validateReturnAgainstIssuance(int $issuanceId, array $lines): void
+    {
+        $issuance = InventoryTransaction::query()->with('lines')->findOrFail($issuanceId);
+        foreach ($lines as $line) {
+            if (empty($line['item_id'])) {
+                continue;
+            }
+            $issued = $issuance->lines->firstWhere('item_id', (int) $line['item_id']);
+            if (! $issued) {
+                continue;
+            }
+            if ((float) ($line['qty'] ?? 0) > ((float) $issued->qty + 0.0001)) {
+                throw ValidationException::withMessages(['lines' => 'Return bags cannot exceed issued bags for this yarn.']);
+            }
+        }
+    }
+
     private function storeGreyConversionContract(Request $request): RedirectResponse|JsonResponse
     {
         $this->normalizeErpDates($request, ['contract_date', 'completion_date']);

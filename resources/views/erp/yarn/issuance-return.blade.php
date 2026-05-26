@@ -3,11 +3,12 @@
 @section('title', $screen['label'])
 
 @section('content')
-    @include('erp.yarn.partials.movement-form', [
-        'contractMode' => 'single',
-        'singleContracts' => $contracts,
-        'showSourceIssue' => true,
-        'lineLabel' => 'Yarn return lines',
-        'defaultVoucherType' => 'YOR',
-    ])
+    @include('erp.yarn.partials.transaction-form', ['formVariant' => 'issuance-return'])
 @endsection
+
+@push('scripts')
+    <script>
+        window.erpYarnItems = @json($yarnItemsPayload ?? []);
+        window.erpYarnIssuances = @json($yarnIssuanceOptions ?? []);
+    </script>
+@endpush

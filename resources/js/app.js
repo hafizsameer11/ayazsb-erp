@@ -5,6 +5,7 @@ import { initErpAjaxSave } from './erp-ajax-save';
 import { initErpRecordDelete } from './erp-record-delete';
 import { initYarnContractCalculations } from './yarn-contract-calculations';
 import './grey-transaction-calculations';
+import { initYarnMovementCalculations } from './yarn-movement-calculations';
 
 document.addEventListener('DOMContentLoaded', () => {
     initErpDetailLines();
@@ -12,4 +13,5 @@ document.addEventListener('DOMContentLoaded', () => {
     initErpAjaxSave();
     initErpRecordDelete();
     initYarnContractCalculations();
+    initYarnMovementCalculations();
 });

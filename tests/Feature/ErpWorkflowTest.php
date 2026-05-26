@@ -105,6 +105,54 @@ class ErpWorkflowTest extends TestCase
             'total_net_amount' => 3120000,
             'status' => 'open',
         ]);
+
+        $greyQuality = \App\Models\GreyQuality::query()->create([
+            'quality_no' => '100900',
+            'quality_name' => '64 X 60 TEST GREY',
+            'is_active' => true,
+        ]);
+
+        \App\Models\GreyConversionContract::query()->create([
+            'contract_no' => 'GREY-CONV-001',
+            'contract_code' => 'GCC001',
+            'contract_type' => 'CONV',
+            'contract_date' => now()->toDateString(),
+            'status' => 'running',
+            'account_id' => $supplierAccount->id,
+            'grey_quality_id' => $greyQuality->id,
+            'qty_mtr' => 5000,
+            'per_mtr_rate' => 10,
+        ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function yarnIssuancePayload(\App\Models\YarnContract $contract, \App\Models\Item $item, array $lineOverrides = []): array
+    {
+        $greyContract = \App\Models\GreyConversionContract::query()->firstOrFail();
+
+        return [
+            'trans_date' => now()->toDateString(),
+            'account_id' => $contract->account_id,
+            'grey_conversion_contract_id' => $greyContract->id,
+            'meta' => ['yarn_contract_id' => $contract->id],
+            'from_godown_id' => $contract->godown_id,
+            'submit_action' => 'post',
+            'lines' => [
+                array_merge([
+                    'item_id' => $item->id,
+                    'description' => 'Issue line',
+                    'qty' => 2,
+                    'meta' => [
+                        'yarn_type' => 'any',
+                        'packing_size' => $contract->packing_size ?: 40,
+                        'no_of_cones' => 0,
+                    ],
+                    'rate' => 50,
+                ], $lineOverrides),
+            ],
+        ];
     }
 
     private function createAccountChain(\App\Models\Account $head, string $controlCode, string $controlName, string $ledgerCode, string $ledgerName, string $subLedgerCode, string $subLedgerName): \App\Models\Account
@@ -231,14 +279,10 @@ class ErpWorkflowTest extends TestCase
         ]);
         $purchase->assertRedirect();
 
-        $save = $this->actingAs($admin)->post(route('erp.yarn.screen.store', ['screen' => 'issuance']), [
-            'trans_date' => now()->toDateString(),
-            'yarn_contract_id' => $contract->id,
-            'remarks' => 'Yarn issuance test',
-            'lines' => [
-                ['item_id' => $item->id, 'description' => 'Issue line', 'qty' => 2, 'weight_lbs' => 200, 'rate' => 50, 'amount' => 10000],
-            ],
-        ]);
+        $save = $this->actingAs($admin)->post(route('erp.yarn.screen.store', ['screen' => 'issuance']), array_merge(
+            $this->yarnIssuancePayload($contract, $item),
+            ['remarks' => 'Yarn issuance test'],
+        ));
         $save->assertRedirect();
 
         $transaction = \App\Models\InventoryTransaction::query()
@@ -351,13 +395,16 @@ class ErpWorkflowTest extends TestCase
         foreach ([
             'purchase-contract',
             'purchase-contract-wise',
+            'purchase-without-contract',
             'sale-contract',
             'sale-contract-wise',
+            'sale-without-contract',
             'issuance',
             'issuance-return',
             'issuance-transfer',
             'godown-transfer',
             'gain-shortage',
+            'opening',
         ] as $screen) {
             $this->actingAs($admin)
                 ->get(route('erp.yarn.screen', ['screen' => $screen]))
@@ -386,34 +433,50 @@ class ErpWorkflowTest extends TestCase
             'meta' => ['voucher_type' => 'YPV'],
         ])->assertRedirect();
 
-        $this->actingAs($admin)->post(route('erp.yarn.screen.store', ['screen' => 'issuance']), [
-            'trans_date' => now()->toDateString(),
-            'yarn_contract_id' => $from->id,
-            'submit_action' => 'post',
-            'lines' => [
-                ['item_id' => $item->id, 'description' => 'Issue', 'qty' => 3, 'weight_lbs' => 300, 'rate' => 20, 'meta' => ['yarn_type' => 'WARP']],
-            ],
-        ])->assertRedirect();
+        $this->actingAs($admin)->post(route('erp.yarn.screen.store', ['screen' => 'issuance']), array_merge(
+            $this->yarnIssuancePayload($from, $item, ['qty' => 3, 'rate' => 20, 'meta' => ['yarn_type' => 'warp', 'packing_size' => $from->packing_size ?: 40, 'no_of_cones' => 0]]),
+        ))->assertRedirect();
 
-        $issue = \App\Models\InventoryTransaction::query()->where('screen_slug', 'issuance')->where('yarn_contract_id', $from->id)->latest()->firstOrFail();
+        $issue = \App\Models\InventoryTransaction::query()->where('screen_slug', 'issuance')->latest()->firstOrFail();
+
+        $greyContract = \App\Models\GreyConversionContract::query()->firstOrFail();
 
         $this->actingAs($admin)->post(route('erp.yarn.screen.store', ['screen' => 'issuance-return']), [
             'trans_date' => now()->toDateString(),
-            'yarn_contract_id' => $from->id,
+            'account_id' => $from->account_id,
+            'grey_conversion_contract_id' => $greyContract->id,
             'source_transaction_id' => $issue->id,
+            'from_godown_id' => $from->godown_id,
+            'meta' => ['yarn_contract_id' => $from->id],
             'submit_action' => 'post',
             'lines' => [
-                ['item_id' => $item->id, 'description' => 'Return', 'qty' => 1, 'weight_lbs' => 50, 'rate' => 20],
+                ['item_id' => $item->id, 'description' => 'Return', 'qty' => 1, 'meta' => ['packing_size' => $from->packing_size ?: 40, 'no_of_cones' => 0], 'rate' => 20],
             ],
         ])->assertRedirect();
 
+        $toGrey = \App\Models\GreyConversionContract::query()->create([
+            'contract_no' => 'GREY-CONV-002',
+            'contract_code' => 'GCC002',
+            'contract_type' => 'CONV',
+            'contract_date' => now()->toDateString(),
+            'status' => 'running',
+            'account_id' => $to->account_id,
+            'grey_quality_id' => $greyContract->grey_quality_id,
+            'qty_mtr' => 2000,
+            'per_mtr_rate' => 12,
+        ]);
+
         $this->actingAs($admin)->post(route('erp.yarn.screen.store', ['screen' => 'issuance-transfer']), [
             'trans_date' => now()->toDateString(),
-            'from_yarn_contract_id' => $from->id,
-            'to_yarn_contract_id' => $to->id,
+            'from_account_id' => $from->account_id,
+            'source_transaction_id' => $issue->id,
+            'to_account_id' => $to->account_id,
+            'to_grey_conversion_contract_id' => $toGrey->id,
+            'from_godown_id' => $from->godown_id,
+            'meta' => ['yarn_contract_id' => $from->id, 'from_yarn_contract_id' => $from->id, 'to_yarn_contract_id' => $to->id],
             'submit_action' => 'post',
             'lines' => [
-                ['item_id' => $item->id, 'description' => 'Transfer', 'qty' => 1, 'weight_lbs' => 100, 'rate' => 20, 'meta' => ['transfer_rate' => 22]],
+                ['item_id' => $item->id, 'description' => 'Transfer', 'qty' => 1, 'meta' => ['packing_size' => $from->packing_size ?: 40, 'no_of_cones' => 0], 'rate' => 20],
             ],
         ])->assertRedirect();
 
@@ -432,11 +495,11 @@ class ErpWorkflowTest extends TestCase
 
         $this->assertEqualsWithDelta(1000, $snapshot['purchased_weight_lbs'], 0.001);
         $this->assertEqualsWithDelta(300, $snapshot['issued_weight_lbs'], 0.001);
-        $this->assertEqualsWithDelta(50, $snapshot['returned_weight_lbs'], 0.001);
+        $this->assertEqualsWithDelta(100, $snapshot['returned_weight_lbs'], 0.001);
         $this->assertEqualsWithDelta(100, $snapshot['transferred_out_weight_lbs'], 0.001);
-        $this->assertEqualsWithDelta(25, $snapshot['gain_weight_lbs'], 0.001);
-        $this->assertEqualsWithDelta(10, $snapshot['shortage_weight_lbs'], 0.001);
-        $this->assertEqualsWithDelta(665, $snapshot['available_weight_lbs'], 0.001);
+        $this->assertEqualsWithDelta(100, $snapshot['gain_weight_lbs'], 0.001);
+        $this->assertEqualsWithDelta(100, $snapshot['shortage_weight_lbs'], 0.001);
+        $this->assertEqualsWithDelta(700, $snapshot['available_weight_lbs'], 0.001);
     }
 
     public function test_super_admin_can_soft_delete_voucher_and_it_disappears_from_lists(): void
