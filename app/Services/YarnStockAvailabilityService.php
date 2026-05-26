@@ -57,6 +57,12 @@ class YarnStockAvailabilityService
                 'available_bags' => round($availableBags, 4),
                 'available_cones' => round($availableCones, 4),
                 'purchase_rate' => $lastPurchaseRate,
+                'lov_label' => implode(' | ', array_filter([
+                    $item->code,
+                    'Bags: ' . number_format($availableBags, 2),
+                    'Cones: ' . number_format($availableCones, 2),
+                    $lastPurchaseRate > 0 ? 'Rate: ' . number_format($lastPurchaseRate, 2) : null,
+                ])),
             ];
         }
 

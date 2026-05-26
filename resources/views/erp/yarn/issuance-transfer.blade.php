@@ -10,6 +10,7 @@
     <script>
         window.erpYarnItems = @json($yarnItemsPayload ?? []);
         window.erpGreyConversionContracts = @json($greyConversionContractsPayload ?? []);
-        window.erpYarnIssuances = @json($yarnIssuanceOptions ?? []);
+        window.erpFromGreyContractsByAccount = @json($fromGreyContractsByAccount ?? []);
+        window.erpIssuableLinesByPartyContract = @json($yarnIssuableLinesByPartyContract ?? []);
     </script>
 @endpush

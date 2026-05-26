@@ -9,6 +9,8 @@
 @push('scripts')
     <script>
         window.erpYarnItems = @json($yarnItemsPayload ?? []);
+        window.erpGreyConversionContracts = @json($greyConversionContractsPayload ?? []);
         window.erpYarnIssuances = @json($yarnIssuanceOptions ?? []);
+        window.erpIssuableLinesByPartyContract = @json($yarnIssuableLinesByPartyContract ?? []);
     </script>
 @endpush

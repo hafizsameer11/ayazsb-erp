@@ -121,6 +121,7 @@ class ErpWorkflowTest extends TestCase
             'account_id' => $supplierAccount->id,
             'grey_quality_id' => $greyQuality->id,
             'qty_mtr' => 5000,
+            'required_bags' => 100,
             'per_mtr_rate' => 10,
         ]);
     }
@@ -469,11 +470,16 @@ class ErpWorkflowTest extends TestCase
         $this->actingAs($admin)->post(route('erp.yarn.screen.store', ['screen' => 'issuance-transfer']), [
             'trans_date' => now()->toDateString(),
             'from_account_id' => $from->account_id,
-            'source_transaction_id' => $issue->id,
+            'from_grey_conversion_contract_id' => $greyContract->id,
             'to_account_id' => $to->account_id,
             'to_grey_conversion_contract_id' => $toGrey->id,
             'from_godown_id' => $from->godown_id,
-            'meta' => ['yarn_contract_id' => $from->id, 'from_yarn_contract_id' => $from->id, 'to_yarn_contract_id' => $to->id],
+            'meta' => [
+                'yarn_contract_id' => $from->id,
+                'from_yarn_contract_id' => $from->id,
+                'to_yarn_contract_id' => $to->id,
+                'from_grey_conversion_contract_id' => $greyContract->id,
+            ],
             'submit_action' => 'post',
             'lines' => [
                 ['item_id' => $item->id, 'description' => 'Transfer', 'qty' => 1, 'meta' => ['packing_size' => $from->packing_size ?: 40, 'no_of_cones' => 0], 'rate' => 20],

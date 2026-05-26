@@ -23,7 +23,7 @@
 
 <div class="erp-panel border border-slate-500 bg-white shadow-md">
     <div class="border-b border-slate-400 bg-[#e8e8e8] px-3 py-2 text-[12px] font-semibold text-slate-800">{{ $screen['code'] }} — YARN OPENING</div>
-    <form class="space-y-3 p-3" data-yarn-line-form data-erp-ajax-save @if($editingTransaction) data-erp-editing="1" @endif
+    <form class="space-y-3 p-3" data-yarn-opening-form data-yarn-line-form data-erp-ajax-save @if($editingTransaction) data-erp-editing="1" @endif
         action="{{ $editingTransaction ? route('erp.yarn.screen.update', ['screen' => $screen['slug'], 'transaction' => $editingTransaction]) : route('erp.yarn.screen.store', ['screen' => $screen['slug']]) }}" method="post">
         @csrf
         @if($editingTransaction) @method('PATCH') @endif
@@ -47,7 +47,12 @@
                         @foreach($godowns as $g)<option value="{{ $g->id }}" @selected((string)old('from_godown_id',$editingTransaction?->from_godown_id)===(string)$g->id)>{{ $g->id }} — {{ $g->name }}</option>@endforeach
                     </select>
                 </label>
-                <label class="erp-field md:col-span-4"><span class="erp-label">Remarks</span><input class="erp-input" name="remarks" value="{{ old('remarks', $editingTransaction?->remarks) }}"></label>
+                <label class="erp-field md:col-span-2"><span class="erp-label">Contract Ref (# and Type)</span>
+                    <select class="erp-input" data-yarn-contract-ref>
+                        <option value=""></option>
+                    </select>
+                </label>
+                <label class="erp-field md:col-span-2"><span class="erp-label">Remarks</span><input class="erp-input" name="remarks" value="{{ old('remarks', $editingTransaction?->remarks) }}" readonly></label>
             </div>
         </fieldset>
 
@@ -62,7 +67,7 @@
                 <tbody>
                     @foreach($rows as $i => $row)
                         <tr data-yarn-line-row>
-                            <td class="border p-0.5"><select class="erp-input w-full" name="lines[{{ $i }}][item_id]" data-yarn-item-select><option value=""></option>@foreach($items as $item)<option value="{{ $item->id }}" @selected((string)$row['item_id']===(string)$item->id)>{{ $item->code }}</option>@endforeach</select></td>
+                            <td class="border p-0.5"><select class="erp-input w-full" name="lines[{{ $i }}][item_id]" data-yarn-item-select><option value=""></option>@foreach($items as $item)<option value="{{ $item->id }}" data-payload="{{ json_encode(collect($yarnItemsPayload ?? [])->firstWhere('id', $item->id)) }}" @selected((string)$row['item_id']===(string)$item->id)>{{ collect($yarnItemsPayload ?? [])->firstWhere('id', $item->id)['lov_label'] ?? $item->code }}</option>@endforeach</select></td>
                             <td class="border p-0.5"><select class="erp-input w-full" name="lines[{{ $i }}][meta][yarn_type]">@foreach(['any','warp','weft'] as $t)<option value="{{ $t }}" @selected(($row['yarn_type']??'any')===$t)>{{ strtoupper($t) }}</option>@endforeach</select></td>
                             <td class="border p-0.5"><input class="erp-input w-full bg-slate-50" name="lines[{{ $i }}][meta][packing_size]" data-yarn-packing-size value="{{ $row['packing_size'] }}" readonly></td>
                             <td class="border p-0.5"><input class="erp-input w-full" name="lines[{{ $i }}][qty]" type="number" step="0.0001" data-yarn-bags value="{{ $row['qty'] }}"></td>

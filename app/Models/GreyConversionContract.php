@@ -24,6 +24,7 @@ class GreyConversionContract extends Model
         'loom_panna',
         'manual_quality_name',
         'qty_mtr',
+        'required_bags',
         'conv_per_pick',
         'per_mtr_rate',
         'fabric_rate',

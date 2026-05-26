@@ -31,6 +31,7 @@
                         <select class="erp-input" name="grey_quality_id"><option value=""></option>@foreach($greyQualities as $q)<option value="{{ $q->id }}" @selected((string)old('grey_quality_id',$editingContract?->grey_quality_id)===(string)$q->id)>{{ $q->quality_no }} — {{ $q->quality_name }}</option>@endforeach</select>
                     </label>
                     <label class="erp-field"><span class="erp-label">Qty (Mtr)</span><input class="erp-input" name="qty_mtr" type="number" step="0.01" value="{{ old('qty_mtr', $editingContract?->qty_mtr) }}"></label>
+                    <label class="erp-field"><span class="erp-label">Required Bags</span><input class="erp-input" name="required_bags" type="number" step="0.0001" value="{{ old('required_bags', $editingContract?->required_bags ?? 0) }}"></label>
                     <label class="erp-field"><span class="erp-label">Per Mtr Rate</span><input class="erp-input" name="per_mtr_rate" type="number" step="0.01" value="{{ old('per_mtr_rate', $editingContract?->per_mtr_rate) }}"></label>
                     <label class="erp-field"><span class="erp-label">Loom Type</span><input class="erp-input" name="loom_type" value="{{ old('loom_type', $editingContract?->loom_type) }}"></label>
                     <label class="erp-field"><span class="erp-label">Loom Width</span><input class="erp-input" name="loom_width" type="number" step="0.01" value="{{ old('loom_width', $editingContract?->loom_width) }}"></label>

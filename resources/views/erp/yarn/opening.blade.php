@@ -7,5 +7,8 @@
 @endsection
 
 @push('scripts')
-    <script>window.erpYarnItems = @json($yarnItemsPayload ?? []);</script>
+    <script>
+        window.erpYarnItems = @json($yarnItemsPayload ?? []);
+        window.erpYarnContractRemarksByAccount = @json($yarnContractRemarksByAccount ?? []);
+    </script>
 @endpush

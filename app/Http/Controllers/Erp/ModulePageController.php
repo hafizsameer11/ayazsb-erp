@@ -17,6 +17,7 @@ use App\Models\GreyConversionContract;
 use App\Models\GreyQuality;
 use App\Models\YarnCount;
 use App\Services\GreyTransactionTotalsService;
+use App\Services\YarnContractLookupService;
 use App\Services\YarnStockAvailabilityService;
 use App\Services\PostingService;
 use App\Services\VoucherNumberService;
@@ -272,25 +273,43 @@ class ModulePageController extends Controller
         }
 
         if ($module === 'yarn') {
-            $stockService = app(YarnStockAvailabilityService::class);
+            $lookup = app(YarnContractLookupService::class);
             $greyContracts = GreyConversionContract::query()
                 ->with(['account', 'quality'])
                 ->orderByDesc('contract_date')
                 ->orderByDesc('id')
                 ->get();
-            $viewData['yarnItemsPayload'] = $stockService->yarnItemsPayload();
-            $viewData['yarnIssuanceOptions'] = $stockService->issuanceOptionsPayload();
-            $viewData['issuancePartyAccountIds'] = $stockService->issuancePartyAccountIds();
+            $viewData['yarnItemsPayload'] = $lookup->yarnItemsPayload();
+            $viewData['yarnIssuanceOptions'] = $lookup->issuanceOptionsPayload();
+            $viewData['issuancePartyAccountIds'] = $lookup->issuancePartyAccountIds();
             $viewData['greyConversionContracts'] = $greyContracts;
-            $viewData['greyConversionContractsPayload'] = $greyContracts->map(fn (GreyConversionContract $c) => [
-                'id' => $c->id,
-                'account_id' => $c->account_id,
-                'contract_no' => $c->contract_no,
-                'contract_code' => $c->contract_code,
-                'contract_date' => $c->contract_date?->format('Y-m-d'),
-                'grey_quality_no' => $c->quality?->quality_no,
-                'qty_mtr' => $c->qty_mtr,
-            ])->values();
+            $viewData['greyConversionContractsPayload'] = $lookup->greyConversionContractsPayload();
+            $viewData['yarnContractRemarksByAccount'] = $lookup->contractRemarksByAccount();
+
+            $fromByAccount = [];
+            $issuableByPartyContract = [];
+            foreach ($lookup->issuancePartyAccountIds() as $partyAccountId) {
+                $fromByAccount[$partyAccountId] = $lookup->fromContractsForTransfer((int) $partyAccountId);
+            }
+            $issuancePairs = InventoryTransaction::query()
+                ->where('module', 'yarn')
+                ->where('screen_slug', 'issuance')
+                ->whereNotNull('grey_conversion_contract_id')
+                ->whereNotNull('account_id')
+                ->select(['account_id', 'grey_conversion_contract_id'])
+                ->distinct()
+                ->get();
+            foreach ($issuancePairs as $pair) {
+                $key = $pair->account_id . ':' . $pair->grey_conversion_contract_id;
+                if (! isset($issuableByPartyContract[$key])) {
+                    $issuableByPartyContract[$key] = $lookup->issuableLinesForPartyContract(
+                        (int) $pair->account_id,
+                        (int) $pair->grey_conversion_contract_id,
+                    );
+                }
+            }
+            $viewData['fromGreyContractsByAccount'] = $fromByAccount;
+            $viewData['yarnIssuableLinesByPartyContract'] = $issuableByPartyContract;
         }
 
         $viewData['editingTransaction'] = $this->resolveEditingTransaction($request, $module, $screenMeta);
@@ -368,6 +387,7 @@ class ModulePageController extends Controller
             'from_account_id' => ['nullable', 'integer', Rule::exists('accounts', 'id')->where(fn ($q) => $q->where('level', 'sub_ledger')->where('is_active', true))],
             'to_account_id' => ['nullable', 'integer', Rule::exists('accounts', 'id')->where(fn ($q) => $q->where('level', 'sub_ledger')->where('is_active', true))],
             'grey_conversion_contract_id' => ['nullable', 'integer', 'exists:grey_conversion_contracts,id'],
+            'from_grey_conversion_contract_id' => ['nullable', 'integer', 'exists:grey_conversion_contracts,id'],
             'to_grey_conversion_contract_id' => ['nullable', 'integer', 'exists:grey_conversion_contracts,id'],
             'broker_account_id' => ['nullable', 'integer', Rule::exists('accounts', 'id')->where(fn ($q) => $q->where('level', 'sub_ledger')->where('is_active', true))],
             'yarn_contract_id' => ['nullable', 'integer', 'exists:yarn_contracts,id'],
@@ -395,6 +415,15 @@ class ModulePageController extends Controller
             $this->validateYarnTransaction($screenMeta['slug'], $data, $balanceService);
         }
 
+        if ($module === 'yarn' && $screenMeta['slug'] === 'issuance-transfer') {
+            $fromGreyId = $data['from_grey_conversion_contract_id'] ?? data_get($data, 'meta.from_grey_conversion_contract_id');
+            if ($fromGreyId) {
+                $data['meta'] = array_merge($data['meta'] ?? [], [
+                    'from_grey_conversion_contract_id' => (int) $fromGreyId,
+                ]);
+            }
+        }
+
         if ($module === 'grey' && in_array($screenMeta['slug'], ['purchase', 'sale'], true)) {
             $data = $this->mergeGreyPurchaseSaleMeta($data);
         }
@@ -418,15 +447,23 @@ class ModulePageController extends Controller
             $linkedYarnContractId = $data['yarn_contract_id']
                 ?? data_get($data, 'meta.yarn_contract_id')
                 ?? null;
-            if ($screenMeta['slug'] === 'issuance-transfer' && ! empty($data['source_transaction_id'])) {
-                $source = InventoryTransaction::query()->find($data['source_transaction_id']);
-                $linkedYarnContractId = $linkedYarnContractId
-                    ?? $source?->meta['yarn_contract_id']
-                    ?? null;
-                $data['meta'] = array_merge($data['meta'] ?? [], [
-                    'from_yarn_contract_id' => $linkedYarnContractId,
-                    'to_yarn_contract_id' => data_get($data, 'meta.to_yarn_contract_id'),
-                ]);
+            if ($screenMeta['slug'] === 'issuance-transfer') {
+                $fromGreyId = $data['from_grey_conversion_contract_id'] ?? data_get($data, 'meta.from_grey_conversion_contract_id');
+                if ($fromGreyId) {
+                    $data['meta'] = array_merge($data['meta'] ?? [], [
+                        'from_grey_conversion_contract_id' => (int) $fromGreyId,
+                    ]);
+                }
+                if (! empty($data['source_transaction_id'])) {
+                    $source = InventoryTransaction::query()->find($data['source_transaction_id']);
+                    $linkedYarnContractId = $linkedYarnContractId
+                        ?? $source?->meta['yarn_contract_id']
+                        ?? null;
+                    $data['meta'] = array_merge($data['meta'] ?? [], [
+                        'from_yarn_contract_id' => $linkedYarnContractId,
+                        'to_yarn_contract_id' => data_get($data, 'meta.to_yarn_contract_id'),
+                    ]);
+                }
             }
             $transaction = InventoryTransaction::query()->create([
                 'module' => $module,
@@ -530,8 +567,7 @@ class ModulePageController extends Controller
             'from_account_id' => ['nullable', 'integer', Rule::exists('accounts', 'id')->where(fn ($q) => $q->where('level', 'sub_ledger')->where('is_active', true))],
             'to_account_id' => ['nullable', 'integer', Rule::exists('accounts', 'id')->where(fn ($q) => $q->where('level', 'sub_ledger')->where('is_active', true))],
             'grey_conversion_contract_id' => ['nullable', 'integer', 'exists:grey_conversion_contracts,id'],
-            'to_grey_conversion_contract_id' => ['nullable', 'integer', 'exists:grey_conversion_contracts,id'],
-            'grey_conversion_contract_id' => ['nullable', 'integer', 'exists:grey_conversion_contracts,id'],
+            'from_grey_conversion_contract_id' => ['nullable', 'integer', 'exists:grey_conversion_contracts,id'],
             'to_grey_conversion_contract_id' => ['nullable', 'integer', 'exists:grey_conversion_contracts,id'],
             'broker_account_id' => ['nullable', 'integer', Rule::exists('accounts', 'id')->where(fn ($q) => $q->where('level', 'sub_ledger')->where('is_active', true))],
             'yarn_contract_id' => ['nullable', 'integer', 'exists:yarn_contracts,id'],
@@ -560,7 +596,16 @@ class ModulePageController extends Controller
 
         if ($module === 'yarn') {
             $data = $this->enrichYarnLinePayload($screenMeta['slug'], $data, $contractCalculator);
-            $this->validateYarnTransaction($screenMeta['slug'], $data, $balanceService);
+            $this->validateYarnTransaction($screenMeta['slug'], $data, $balanceService, $transaction->id ?? null);
+        }
+
+        if ($module === 'yarn' && $screenMeta['slug'] === 'issuance-transfer') {
+            $fromGreyId = $data['from_grey_conversion_contract_id'] ?? data_get($data, 'meta.from_grey_conversion_contract_id');
+            if ($fromGreyId) {
+                $data['meta'] = array_merge($data['meta'] ?? [], [
+                    'from_grey_conversion_contract_id' => (int) $fromGreyId,
+                ]);
+            }
         }
 
         $postOnSubmit = in_array($data['submit_action'] ?? 'post', ['post', 'save'], true);
@@ -1052,8 +1097,9 @@ class ModulePageController extends Controller
     /**
      * @param array<string, mixed> $data
      */
-    private function validateYarnTransaction(string $screen, array $data, YarnContractBalanceService $balanceService): void
+    private function validateYarnTransaction(string $screen, array $data, YarnContractBalanceService $balanceService, ?int $excludeTransactionId = null): void
     {
+        $lookup = app(YarnContractLookupService::class);
         if (in_array($screen, ['purchase-contract-wise', 'sale-contract-wise', 'gain-shortage'], true)
             && empty($data['yarn_contract_id'])) {
             throw ValidationException::withMessages(['yarn_contract_id' => 'Select a yarn contract.']);
@@ -1068,8 +1114,12 @@ class ModulePageController extends Controller
         }
 
         if ($screen === 'issuance-transfer') {
-            if (empty($data['from_account_id']) || empty($data['source_transaction_id']) || empty($data['to_account_id'])) {
-                throw ValidationException::withMessages(['source_transaction_id' => 'Select from party, issuance, and to party.']);
+            if (empty($data['from_account_id']) || empty($data['to_account_id'])) {
+                throw ValidationException::withMessages(['from_account_id' => 'Select from and to parties.']);
+            }
+            $fromGreyId = (int) ($data['from_grey_conversion_contract_id'] ?? data_get($data, 'meta.from_grey_conversion_contract_id') ?? 0);
+            if ($fromGreyId <= 0) {
+                throw ValidationException::withMessages(['from_grey_conversion_contract_id' => 'Select a from grey conversion contract.']);
             }
             if (empty($data['to_grey_conversion_contract_id']) && empty($data['grey_conversion_contract_id'])) {
                 throw ValidationException::withMessages(['to_grey_conversion_contract_id' => 'Select a grey conversion contract for the destination.']);
@@ -1103,10 +1153,41 @@ class ModulePageController extends Controller
 
         if ($screen === 'issuance') {
             $this->validateYarnStockForLines($lines);
+            if (! empty($data['grey_conversion_contract_id'])) {
+                $this->validateGreyContractBagBudget(
+                    (int) $data['grey_conversion_contract_id'],
+                    $lines,
+                    $lookup,
+                    $excludeTransactionId,
+                );
+            }
         }
 
         if ($screen === 'issuance-return' && ! empty($data['source_transaction_id'])) {
             $this->validateReturnAgainstIssuance((int) $data['source_transaction_id'], $lines);
+        }
+
+        if ($screen === 'issuance-return' && ! empty($data['grey_conversion_contract_id']) && ! empty($data['account_id'])) {
+            $this->validateIssuableLinesForPartyContract(
+                (int) $data['account_id'],
+                (int) $data['grey_conversion_contract_id'],
+                $lines,
+                $lookup,
+                $excludeTransactionId,
+            );
+        }
+
+        if ($screen === 'issuance-transfer' && ! empty($data['from_account_id'])) {
+            $fromGreyId = (int) ($data['from_grey_conversion_contract_id'] ?? data_get($data, 'meta.from_grey_conversion_contract_id') ?? 0);
+            if ($fromGreyId > 0) {
+                $this->validateIssuableLinesForPartyContract(
+                    (int) $data['from_account_id'],
+                    $fromGreyId,
+                    $lines,
+                    $lookup,
+                    $excludeTransactionId,
+                );
+            }
         }
 
         if ($screen === 'gain-shortage') {
@@ -1624,6 +1705,64 @@ class ModulePageController extends Controller
             if ((float) ($line['qty'] ?? 0) > ((float) $issued->qty + 0.0001)) {
                 throw ValidationException::withMessages(['lines' => 'Return bags cannot exceed issued bags for this yarn.']);
             }
+            $issuedCones = (float) ($issued->meta['no_of_cones'] ?? $issued->meta['cones'] ?? 0);
+            $returnCones = (float) ($line['meta']['no_of_cones'] ?? $line['meta']['cones'] ?? 0);
+            if ($returnCones > $issuedCones + 0.0001) {
+                throw ValidationException::withMessages(['lines' => 'Return cones cannot exceed issued cones for this yarn.']);
+            }
+        }
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $lines
+     */
+    private function validateGreyContractBagBudget(
+        int $greyContractId,
+        array $lines,
+        YarnContractLookupService $lookup,
+        ?int $excludeTransactionId,
+    ): void {
+        $contract = GreyConversionContract::query()->find($greyContractId);
+        if (! $contract || (float) $contract->required_bags <= 0) {
+            return;
+        }
+
+        $requested = array_reduce($lines, static fn (float $sum, array $line): float => $sum + (float) ($line['qty'] ?? 0), 0.0);
+        $remaining = $lookup->remainingBagsOnGreyContract($greyContractId, $excludeTransactionId);
+        if ($requested > $remaining + 0.0001) {
+            throw ValidationException::withMessages([
+                'grey_conversion_contract_id' => "Issuance exceeds remaining bags on contract ({$remaining} bags left).",
+            ]);
+        }
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $lines
+     */
+    private function validateIssuableLinesForPartyContract(
+        int $accountId,
+        int $greyContractId,
+        array $lines,
+        YarnContractLookupService $lookup,
+        ?int $excludeTransactionId,
+    ): void {
+        $available = collect($lookup->issuableLinesForPartyContract($accountId, $greyContractId, $excludeTransactionId))
+            ->keyBy('item_id');
+
+        foreach ($lines as $line) {
+            if (empty($line['item_id'])) {
+                continue;
+            }
+            $stock = $available->get((int) $line['item_id']);
+            if (! $stock) {
+                throw ValidationException::withMessages(['lines' => 'Selected yarn is not available on this contract for this party.']);
+            }
+            $requestedBags = (float) ($line['qty'] ?? 0);
+            if ($requestedBags > ((float) $stock['available_bags'] + 0.0001)) {
+                throw ValidationException::withMessages([
+                    'lines' => "Bags for {$stock['item_code']} exceed available on contract ({$stock['available_bags']} bags).",
+                ]);
+            }
         }
     }
 
@@ -1674,6 +1813,7 @@ class ModulePageController extends Controller
             'loom_type' => ['nullable', 'string', 'max:80'],
             'loom_width' => ['nullable', 'numeric', 'min:0'],
             'qty_mtr' => ['nullable', 'numeric', 'min:0'],
+            'required_bags' => ['nullable', 'numeric', 'min:0'],
             'per_mtr_rate' => ['nullable', 'numeric', 'min:0'],
             'brokery_rate' => ['nullable', 'numeric', 'min:0'],
             'checker_rate' => ['nullable', 'numeric', 'min:0'],
@@ -1700,6 +1840,7 @@ class ModulePageController extends Controller
             'loom_type' => $data['loom_type'] ?? null,
             'loom_width' => $data['loom_width'] ?? null,
             'qty_mtr' => $data['qty_mtr'] ?? 0,
+            'required_bags' => $data['required_bags'] ?? 0,
             'per_mtr_rate' => $data['per_mtr_rate'] ?? 0,
             'brokery_rate' => $data['brokery_rate'] ?? 0,
             'checker_rate' => $data['checker_rate'] ?? 0,
