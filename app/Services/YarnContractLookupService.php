@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\GreyConversionContract;
 use App\Models\InventoryTransaction;
 use App\Models\InventoryTransactionLine;
+use App\Models\Item;
 use App\Models\YarnContract;
 use Illuminate\Support\Collection;
 
@@ -199,6 +200,136 @@ class YarnContractLookupService
     public function issuancePartyAccountIds(): array
     {
         return $this->stockService->issuancePartyAccountIds();
+    }
+
+    /**
+     * @return array<string, list<string>>
+     */
+    public function yarnFormLookups(): array
+    {
+        $tags = YarnContract::query()->whereNotNull('yarn_tag')->distinct()->pluck('yarn_tag')->filter()->values()->all();
+        if ($tags === []) {
+            $tags = ['FRESH', 'DOUBLING / PUNCHING', 'RECYCLED'];
+        }
+
+        return [
+            'receipt_forms' => [
+                'RECEIPT FROM DOUBLING/PUNCHING',
+                'RECEIPT FROM WARPING',
+                'RECEIPT FROM OTHER',
+            ],
+            'yarn_tags' => $tags,
+            'yarn_uses' => ['any', 'warp', 'weft'],
+            'yarn_conditions' => ['FRESH', 'RECYCLED', 'SECOND'],
+            'qty_units' => ['BAGS', 'CONES', 'LBS'],
+            'packing_units' => ['LBS', 'KGS'],
+            'transfer_from' => ['ISSUE FOR LOOMS', 'ISSUE FOR WARPING', 'GODOWN STOCK'],
+            'gain_short_for' => ['LOOMS', 'WARPING', 'GODOWN', 'OTHER'],
+        ];
+    }
+
+    /**
+     * Flat issuance lines for receipt consumption grid.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function issuanceConsumptionOptions(?int $accountId = null): array
+    {
+        $options = [];
+        foreach ($this->issuanceOptionsPayload() as $issuance) {
+            if ($accountId !== null && (int) $issuance['account_id'] !== $accountId) {
+                continue;
+            }
+            foreach ($issuance['lines'] as $line) {
+                if (empty($line['item_id'])) {
+                    continue;
+                }
+                $options[] = [
+                    'issue_id' => $issuance['id'],
+                    'issue_no' => $issuance['trans_no'],
+                    'account_id' => $issuance['account_id'],
+                    'item_id' => $line['item_id'],
+                    'item_code' => $line['item_code'],
+                    'item_name' => $line['item_name'],
+                    'yarn_tag' => 'FRESH',
+                    'weight_lbs' => $line['weight_lbs'],
+                    'rate' => $line['rate'],
+                    'amount' => $line['amount'],
+                    'lov_label' => implode(' | ', array_filter([
+                        $issuance['trans_no'],
+                        $line['item_code'],
+                        number_format((float) $line['weight_lbs'], 2) . ' LBS',
+                        'Rate: ' . number_format((float) $line['rate'], 2),
+                    ])),
+                ];
+            }
+        }
+
+        return $options;
+    }
+
+    /**
+     * Items with blend/count info for auto consumption blend grid.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function blendItemsPayload(): array
+    {
+        return Item::query()
+            ->where('module', 'yarn')
+            ->where('is_active', true)
+            ->with(['yarnCount', 'yarnBlend', 'yarnThread'])
+            ->orderBy('code')
+            ->get()
+            ->map(fn (Item $item) => [
+                'id' => $item->id,
+                'code' => $item->code,
+                'name' => $item->name,
+                'yarn_count_id' => $item->yarn_count_id,
+                'yarn_blend_id' => $item->yarn_blend_id,
+                'yarn_thread_id' => $item->yarn_thread_id,
+                'yarn_count_name' => $item->yarnCount?->count,
+                'yarn_blend' => $item->yarnBlend?->blend,
+                'yarn_thread' => $item->yarnThread?->thread,
+                'lov_label' => implode(' | ', array_filter([
+                    $item->code,
+                    $item->yarnCount?->count,
+                    $item->yarnBlend?->blend,
+                    $item->name,
+                ])),
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Open yarn contracts for loom transfer / gain-shortage contract id LOV.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function yarnContractsPayload(?int $accountId = null): array
+    {
+        $query = YarnContract::query()->with(['account', 'item'])->orderByDesc('contract_date');
+        if ($accountId !== null) {
+            $query->where('account_id', $accountId);
+        }
+
+        return $query->get()->map(fn (YarnContract $c) => [
+            'id' => $c->id,
+            'account_id' => $c->account_id,
+            'contract_no' => $c->contract_no,
+            'contract_code' => $c->contract_code,
+            'contract_date' => $c->contract_date?->format('Y-m-d'),
+            'item_id' => $c->item_id,
+            'item_code' => $c->item?->code,
+            'rate' => $c->rate,
+            'lov_label' => implode(' | ', array_filter([
+                $c->contract_code ?? $c->contract_no,
+                $c->contract_date?->format('d-m-Y'),
+                $c->item?->code,
+                $c->account?->name,
+            ])),
+        ])->values()->all();
     }
 
     /**

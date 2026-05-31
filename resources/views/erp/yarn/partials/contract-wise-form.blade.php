@@ -33,13 +33,14 @@
         'total_brokery' => $c->total_brokery,
         'total_net_amount' => $c->total_net_amount,
     ])->values();
-    $yarnItemsPayload = ($items ?? collect())->map(fn ($item) => [
+    $yarnItemsPayload = collect($yarnItemsPayload ?? ($items ?? collect())->map(fn ($item) => is_array($item) ? $item : [
         'id' => $item->id,
         'code' => $item->code,
         'name' => $item->name,
         'pack_size_cones' => $item->pack_size_cones,
         'packing_weight' => $item->packing_weight,
-    ])->values();
+        'lov_label' => $item->code . ' — ' . $item->name,
+    ]))->values();
 @endphp
 
 <div class="erp-panel border border-slate-500 bg-white shadow-md">

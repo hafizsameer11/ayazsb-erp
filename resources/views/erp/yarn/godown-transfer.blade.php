@@ -3,10 +3,9 @@
 @section('title', $screen['label'])
 
 @section('content')
-    @include('erp.yarn.partials.movement-form', [
-        'contractMode' => 'none',
-        'showGodownPair' => true,
-        'lineLabel' => 'Yarn godown transfer lines',
-        'defaultVoucherType' => 'GTV',
-    ])
+    @include('erp.yarn.partials.godown-transfer-form')
 @endsection
+
+@push('scripts')
+    <script>window.erpYarnItems = @json($yarnItemsPayload ?? []);</script>
+@endpush

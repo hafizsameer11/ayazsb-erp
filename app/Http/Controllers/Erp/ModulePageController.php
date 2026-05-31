@@ -16,6 +16,8 @@ use App\Models\YarnContract;
 use App\Models\GreyConversionContract;
 use App\Models\GreyQuality;
 use App\Models\YarnCount;
+use App\Models\YarnThread;
+use App\Models\YarnBlend;
 use App\Services\GreyTransactionTotalsService;
 use App\Services\YarnContractLookupService;
 use App\Services\YarnStockAvailabilityService;
@@ -60,7 +62,10 @@ class ModulePageController extends Controller
         'issuance' => 'issuance',
         'issuance-return' => 'issuance-return',
         'issuance-transfer' => 'issuance-transfer',
+        'receipt-processed' => 'receipt-processed',
+        'receipt-processed-auto' => 'receipt-processed-auto',
         'godown-transfer' => 'godown-transfer',
+        'loom-transfer' => 'loom-transfer',
         'gain-shortage' => 'gain-shortage',
         'opening' => 'opening',
     ];
@@ -99,7 +104,7 @@ class ModulePageController extends Controller
             'groups' => [
                 'Grey Transactions' => [
                     ['slug' => 'purchase', 'label' => 'Grey Purchase', 'code' => 'GREYSP_0006'],
-                    ['slug' => 'sale', 'label' => 'Grey Sale', 'code' => 'GREYSP_0007'],
+                    ['slug' => 'sale', 'label' => 'Grey Sale', 'code' => 'GREYSP_0009'],
                 ],
                 'Conversion Transactions' => [
                     ['slug' => 'conversion-contract', 'label' => 'Conversion Contract', 'code' => 'GREYSP_0011'],
@@ -198,6 +203,12 @@ class ModulePageController extends Controller
         $yarnCounts = $module === 'grey'
             ? YarnCount::query()->where('is_active', true)->orderBy('id')->get()
             : collect();
+        $yarnThreads = $module === 'grey'
+            ? YarnThread::query()->where('is_active', true)->orderBy('id')->get()
+            : collect();
+        $yarnBlends = $module === 'grey'
+            ? YarnBlend::query()->where('is_active', true)->orderBy('id')->get()
+            : collect();
 
         $viewData = [
             'activeModule' => $module,
@@ -221,6 +232,8 @@ class ModulePageController extends Controller
             'greyQualities' => $greyQualities,
             'conversionContracts' => $conversionContracts,
             'yarnCounts' => $yarnCounts,
+            'yarnThreads' => $yarnThreads,
+            'yarnBlends' => $yarnBlends,
             'issueTransactions' => $module === 'yarn'
                 ? InventoryTransaction::query()
                     ->where('module', 'yarn')
@@ -310,6 +323,10 @@ class ModulePageController extends Controller
             }
             $viewData['fromGreyContractsByAccount'] = $fromByAccount;
             $viewData['yarnIssuableLinesByPartyContract'] = $issuableByPartyContract;
+            $viewData['yarnFormLookups'] = $lookup->yarnFormLookups();
+            $viewData['yarnIssuanceConsumptionOptions'] = $lookup->issuanceConsumptionOptions();
+            $viewData['yarnBlendItemsPayload'] = $lookup->blendItemsPayload();
+            $viewData['yarnContractsPayload'] = $lookup->yarnContractsPayload();
         }
 
         $viewData['editingTransaction'] = $this->resolveEditingTransaction($request, $module, $screenMeta);
@@ -340,6 +357,9 @@ class ModulePageController extends Controller
             $viewData['postableAccounts'] = Account::query()->postable()->orderBy('code')->get();
             $viewData['accountsReportTypes'] = ReportFilters::ACCOUNTS_REPORTS;
             $viewData['inventoryScreenOptions'] = $this->inventoryScreenOptions($screenMeta['slug']);
+            if ($screenMeta['slug'] === 'grey') {
+                return view('erp.reports.grey-panel', $viewData);
+            }
         }
 
         return view('erp.module-screen', $viewData);
@@ -425,7 +445,15 @@ class ModulePageController extends Controller
         }
 
         if ($module === 'grey' && in_array($screenMeta['slug'], ['purchase', 'sale'], true)) {
-            $data = $this->mergeGreyPurchaseSaleMeta($data);
+            $data = $this->mergeGreyPurchaseSaleMeta($data, $screenMeta['slug']);
+        }
+
+        if ($module === 'grey' && $screenMeta['slug'] === 'conversion-inward') {
+            $contractId = data_get($data, 'meta.grey_conversion_contract_id');
+            if ($contractId) {
+                $data['grey_conversion_contract_id'] = (int) $contractId;
+            }
+            $data = $this->mergeGreyPurchaseSaleMeta($data, $screenMeta['slug']);
         }
 
         $postOnSubmit = in_array($data['submit_action'] ?? 'post', ['post', 'save'], true);
@@ -591,7 +619,15 @@ class ModulePageController extends Controller
         ]);
 
         if ($module === 'grey' && in_array($screenMeta['slug'], ['purchase', 'sale'], true)) {
-            $data = $this->mergeGreyPurchaseSaleMeta($data);
+            $data = $this->mergeGreyPurchaseSaleMeta($data, $screenMeta['slug']);
+        }
+
+        if ($module === 'grey' && $screenMeta['slug'] === 'conversion-inward') {
+            $contractId = data_get($data, 'meta.grey_conversion_contract_id');
+            if ($contractId) {
+                $data['grey_conversion_contract_id'] = (int) $contractId;
+            }
+            $data = $this->mergeGreyPurchaseSaleMeta($data, $screenMeta['slug']);
         }
 
         if ($module === 'yarn') {
@@ -1132,19 +1168,32 @@ class ModulePageController extends Controller
             }
         }
 
-        if ($screen === 'godown-transfer') {
-            if (empty($data['from_godown_id']) || empty($data['to_godown_id'])) {
-                throw ValidationException::withMessages(['from_godown_id' => 'Select both from and to godowns.']);
-            }
-
-            if ((int) $data['from_godown_id'] === (int) $data['to_godown_id']) {
-                throw ValidationException::withMessages(['to_godown_id' => 'From and to godowns must be different.']);
-            }
-        }
-
         $lines = $data['lines'] ?? [];
         if (! is_array($lines)) {
             return;
+        }
+
+        if ($screen === 'godown-transfer') {
+            if (empty($data['from_godown_id']) || empty($data['to_godown_id'])) {
+                throw ValidationException::withMessages(['from_godown_id' => 'Select from and to godowns.']);
+            }
+            if ((int) $data['from_godown_id'] === (int) $data['to_godown_id']) {
+                throw ValidationException::withMessages(['to_godown_id' => 'From and to godowns must be different.']);
+            }
+            $this->validateYarnStockForLines($lines);
+        }
+
+        if (in_array($screen, ['loom-transfer', 'receipt-processed', 'receipt-processed-auto'], true)) {
+            if (empty($data['account_id']) || empty($data['item_id'])) {
+                throw ValidationException::withMessages(['account_id' => 'Party and yarn are required.']);
+            }
+        }
+
+        if ($screen === 'gain-shortage') {
+            $adjustment = strtolower((string) ($data['adjustment_type'] ?? data_get($data, 'meta.adjustment_type') ?? ''));
+            if ($adjustment === 'shortage' && ! empty($data['source_transaction_id'])) {
+                $this->validateReturnAgainstIssuance((int) $data['source_transaction_id'], $lines);
+            }
         }
 
         if (in_array($screen, ['sale-contract-wise'], true)) {
@@ -1626,8 +1675,20 @@ class ModulePageController extends Controller
      */
     private function enrichYarnLinePayload(string $screen, array $data, YarnContractCalculationService $calculator): array
     {
-        if (! in_array($screen, ['opening', 'issuance', 'issuance-return', 'issuance-transfer', 'godown-transfer', 'gain-shortage'], true)) {
+        if (! in_array($screen, [
+            'opening', 'issuance', 'issuance-return', 'issuance-transfer',
+            'godown-transfer', 'loom-transfer', 'gain-shortage',
+            'receipt-processed', 'receipt-processed-auto',
+        ], true)) {
             return $data;
+        }
+
+        if (in_array($screen, ['godown-transfer', 'loom-transfer', 'receipt-processed', 'receipt-processed-auto'], true)) {
+            $data = $this->enrichYarnSingleLinePayload($screen, $data, $calculator);
+        }
+
+        if ($screen === 'gain-shortage' && ! empty($data['item_id'])) {
+            $data = $this->enrichYarnSingleLinePayload($screen, $data, $calculator);
         }
 
         $lines = [];
@@ -1660,6 +1721,91 @@ class ModulePageController extends Controller
         }
 
         $data['lines'] = $lines;
+
+        return $data;
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     * @return array<string, mixed>
+     */
+    private function enrichYarnSingleLinePayload(string $screen, array $data, YarnContractCalculationService $calculator): array
+    {
+        $meta = $data['meta'] ?? [];
+        $itemId = $data['item_id'] ?? $data['lines'][0]['item_id'] ?? null;
+        $packingSize = (float) ($data['packing_size'] ?? $meta['packing_size'] ?? $data['lines'][0]['meta']['packing_size'] ?? 0);
+        if ($packingSize <= 0 && $itemId) {
+            $packingSize = (float) (Item::query()->find($itemId)?->pack_size_cones ?? 0);
+        }
+
+        $qty = (float) ($data['quantity'] ?? $data['lines'][0]['qty'] ?? 0);
+        $cones = (float) ($data['no_of_cones'] ?? $meta['no_of_cones'] ?? $data['lines'][0]['meta']['no_of_cones'] ?? 0);
+        $rate = (float) ($data['rate'] ?? $data['lines'][0]['rate'] ?? 0);
+
+        if ($screen === 'receipt-processed' || $screen === 'receipt-processed-auto') {
+            $weightLbs = (float) ($meta['total_weight_lbs'] ?? $meta['yarn_consumed_lbs'] ?? 0);
+            $labourRate = (float) ($meta['labour_rate'] ?? 0);
+            $meta['total_labour_amount'] = round($weightLbs * $labourRate, 2);
+            $itemRate = (float) ($meta['item_rate'] ?? 0);
+            $meta['yarn_amount'] = round($weightLbs * $itemRate, 2);
+            $data['meta'] = $meta;
+            if ($itemId) {
+                $data['lines'] = [[
+                    'item_id' => $itemId,
+                    'qty' => $qty,
+                    'weight_lbs' => $weightLbs,
+                    'rate' => $itemRate,
+                    'amount' => $meta['yarn_amount'],
+                    'meta' => array_merge($meta, [
+                        'packing_size' => $packingSize,
+                        'no_of_cones' => $cones,
+                        'total_kgs' => $meta['total_weight_kgs'] ?? 0,
+                    ]),
+                ]];
+            }
+
+            return $data;
+        }
+
+        $totals = $calculator->calculate([
+            'no_of_bags' => $qty,
+            'no_of_cones' => $cones,
+            'packing_size' => $packingSize,
+            'rate' => $rate,
+        ]);
+
+        $lineMeta = array_merge($meta, [
+            'packing_size' => $packingSize,
+            'no_of_cones' => $cones,
+            'total_kgs' => $totals['total_kgs'],
+            'yarn_type' => $data['yarn_use'] ?? $meta['yarn_use'] ?? 'any',
+            'yarn_tag' => $data['yarn_tag'] ?? $meta['yarn_tag'] ?? null,
+            'yarn_condition' => $data['yarn_condition'] ?? $meta['yarn_condition'] ?? null,
+            'qty_unit' => $data['qty_unit'] ?? $meta['qty_unit'] ?? 'BAGS',
+            'packing_weight' => $data['packing_weight'] ?? $meta['packing_weight'] ?? null,
+            'packing_unit' => $data['packing_unit'] ?? $meta['packing_unit'] ?? 'LBS',
+        ]);
+
+        if ($screen === 'gain-shortage') {
+            $lineMeta['adjustment_type'] = $data['adjustment_type'] ?? $meta['adjustment_type'] ?? 'gain';
+            $lineMeta['gain_short_for'] = $data['gain_short_for'] ?? $meta['gain_short_for'] ?? null;
+        }
+
+        if ($screen === 'loom-transfer') {
+            $lineMeta['transfer_from'] = $data['transfer_from'] ?? $meta['transfer_from'] ?? null;
+            $lineMeta['to_yarn_use'] = $data['to_yarn_use'] ?? $meta['to_yarn_use'] ?? 'warp';
+        }
+
+        if ($itemId) {
+            $data['lines'] = [[
+                'item_id' => $itemId,
+                'qty' => $qty,
+                'weight_lbs' => $totals['weight_lbs'],
+                'rate' => $rate,
+                'amount' => $totals['total_amount'],
+                'meta' => $lineMeta,
+            ]];
+        }
 
         return $data;
     }
@@ -1788,12 +1934,16 @@ class ModulePageController extends Controller
      * @param array<string, mixed> $data
      * @return array<string, mixed>
      */
-    private function mergeGreyPurchaseSaleMeta(array $data): array
+    private function mergeGreyPurchaseSaleMeta(array $data, string $screen = 'purchase'): array
     {
         $totals = app(GreyTransactionTotalsService::class)->calculate($data['meta'] ?? []);
         $data['meta'] = array_merge($data['meta'] ?? [], $totals);
         if (empty($data['meta']['voucher_type'])) {
-            $data['meta']['voucher_type'] = 'GPV';
+            $data['meta']['voucher_type'] = match ($screen) {
+                'sale' => 'GSV',
+                'conversion-inward' => 'GCV',
+                default => 'GPV',
+            };
         }
 
         return $data;
@@ -1806,18 +1956,33 @@ class ModulePageController extends Controller
     {
         return [
             'contract_no' => ['required', 'string', 'max:80'],
+            'contract_code' => ['nullable', 'string', 'max:80'],
+            'contract_type' => ['nullable', 'string', 'max:40'],
             'contract_date' => ['required', 'date', new ErpDate],
+            'completion_date' => ['nullable', 'date', new ErpDate],
             'status' => ['nullable', 'string', 'max:40'],
             'account_id' => ['required', 'integer', Rule::exists('accounts', 'id')->where(fn ($q) => $q->where('level', 'sub_ledger')->where('is_active', true))],
             'grey_quality_id' => ['nullable', 'integer', 'exists:grey_qualities,id'],
+            'invoice_quality_id' => ['nullable', 'integer', 'exists:grey_qualities,id'],
+            'nature' => ['nullable', 'string', 'max:80'],
             'loom_type' => ['nullable', 'string', 'max:80'],
             'loom_width' => ['nullable', 'numeric', 'min:0'],
+            'loom_panna' => ['nullable', 'string', 'max:40'],
+            'manual_quality_name' => ['nullable', 'string', 'max:255'],
             'qty_mtr' => ['nullable', 'numeric', 'min:0'],
             'required_bags' => ['nullable', 'numeric', 'min:0'],
+            'conv_per_pick' => ['nullable', 'numeric', 'min:0'],
             'per_mtr_rate' => ['nullable', 'numeric', 'min:0'],
+            'fabric_rate' => ['nullable', 'numeric', 'min:0'],
+            'looms_plan' => ['nullable', 'string', 'max:40'],
+            'broker_account_id' => ['nullable', 'integer', 'exists:accounts,id'],
+            'brokery_type' => ['nullable', 'string', 'max:40'],
             'brokery_rate' => ['nullable', 'numeric', 'min:0'],
+            'checker_account_id' => ['nullable', 'integer', 'exists:accounts,id'],
             'checker_rate' => ['nullable', 'numeric', 'min:0'],
             'munshiana' => ['nullable', 'numeric', 'min:0'],
+            'commission_percent' => ['nullable', 'numeric', 'min:0'],
+            'freight_term' => ['nullable', 'string', 'max:255'],
             'remarks' => ['nullable', 'string', 'max:255'],
             'warp_details' => ['nullable', 'array'],
             'weft_details' => ['nullable', 'array'],
@@ -1833,18 +1998,33 @@ class ModulePageController extends Controller
         $totals = app(GreyTransactionTotalsService::class)->calculateContract($data);
 
         return [
+            'contract_code' => $data['contract_code'] ?? null,
+            'contract_type' => $data['contract_type'] ?? 'CONV',
             'contract_date' => $data['contract_date'],
+            'completion_date' => $data['completion_date'] ?? null,
             'status' => $data['status'] ?? 'running',
             'account_id' => $data['account_id'],
             'grey_quality_id' => $data['grey_quality_id'] ?? null,
+            'invoice_quality_id' => $data['invoice_quality_id'] ?? null,
+            'nature' => $data['nature'] ?? null,
             'loom_type' => $data['loom_type'] ?? null,
             'loom_width' => $data['loom_width'] ?? null,
+            'loom_panna' => $data['loom_panna'] ?? null,
+            'manual_quality_name' => $data['manual_quality_name'] ?? null,
             'qty_mtr' => $data['qty_mtr'] ?? 0,
             'required_bags' => $data['required_bags'] ?? 0,
+            'conv_per_pick' => $data['conv_per_pick'] ?? 0,
             'per_mtr_rate' => $data['per_mtr_rate'] ?? 0,
+            'fabric_rate' => $data['fabric_rate'] ?? 0,
+            'looms_plan' => $data['looms_plan'] ?? null,
+            'broker_account_id' => $data['broker_account_id'] ?? null,
+            'brokery_type' => $data['brokery_type'] ?? null,
             'brokery_rate' => $data['brokery_rate'] ?? 0,
+            'checker_account_id' => $data['checker_account_id'] ?? null,
             'checker_rate' => $data['checker_rate'] ?? 0,
             'munshiana' => $data['munshiana'] ?? 0,
+            'commission_percent' => $data['commission_percent'] ?? 0,
+            'freight_term' => $data['freight_term'] ?? null,
             'remarks' => $data['remarks'] ?? null,
             'warp_details' => array_values($data['warp_details'] ?? []),
             'weft_details' => array_values($data['weft_details'] ?? []),

@@ -4,13 +4,14 @@
     $voucherType = $direction === 'sale' ? 'YSV' : 'YPV';
     $meta = $editingTransaction?->meta ?? [];
     $cancelUrl = route('erp.yarn.screen', array_merge(['screen' => $screen['slug']], \App\Support\RecordHistory::historyQuery(request())));
-    $yarnItemsPayload = ($items ?? collect())->map(fn ($item) => [
+    $yarnItemsPayload = collect($yarnItemsPayload ?? ($items ?? collect())->map(fn ($item) => is_array($item) ? $item : [
         'id' => $item->id,
         'code' => $item->code,
         'name' => $item->name,
         'pack_size_cones' => $item->pack_size_cones,
         'packing_weight' => $item->packing_weight,
-    ])->values();
+        'lov_label' => $item->code . ' — ' . $item->name,
+    ]))->values();
 @endphp
 
 <div class="erp-panel border border-slate-500 bg-white shadow-md">
@@ -75,10 +76,10 @@
                 </select>
             </label>
             <label class="erp-field"><span class="erp-label">Yarn Id</span>
-                <select class="erp-input" name="item_id" required>
+                <select class="erp-input" name="item_id" required data-yarn-item-select>
                     <option value="">Select yarn</option>
-                    @foreach(($items ?? []) as $item)
-                        <option value="{{ $item->id }}" @selected((string) old('item_id', $meta['item_id'] ?? '') === (string) $item->id)>{{ $item->code }} — {{ $item->name }}</option>
+                    @foreach($yarnItemsPayload as $item)
+                        <option value="{{ $item['id'] }}" data-payload="{{ json_encode($item) }}" @selected((string) old('item_id', $meta['item_id'] ?? '') === (string) $item['id'])>{{ $item['lov_label'] ?? ($item['code'] . ' — ' . $item['name']) }}</option>
                     @endforeach
                 </select>
             </label>

@@ -403,7 +403,10 @@ class ErpWorkflowTest extends TestCase
             'issuance',
             'issuance-return',
             'issuance-transfer',
+            'receipt-processed',
+            'receipt-processed-auto',
             'godown-transfer',
+            'loom-transfer',
             'gain-shortage',
             'opening',
         ] as $screen) {

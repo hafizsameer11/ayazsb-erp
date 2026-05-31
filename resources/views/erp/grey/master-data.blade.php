@@ -32,7 +32,7 @@
                 'weight' => $d->weight,
             ])->all()
             : [];
-        while (count($detailRows) < 6) {
+        while (count($detailRows) < 9) {
             $detailRows[] = $blankDetail;
         }
         $blankGodown = ['id' => '', 'name' => '', 'is_active' => true];
@@ -99,9 +99,9 @@
                             </select>
                         </label>
                         <label class="erp-field flex items-end gap-2 pb-1"><input type="checkbox" name="is_active" value="1" @checked(old('is_active', $editingQuality?->is_active ?? true))><span class="text-[11px]">Active</span></label>
-                        <label class="erp-field"><span class="erp-label">Reed</span><input class="erp-input" name="reed" type="number" step="0.01" value="{{ old('reed', $editingQuality?->reed) }}"></label>
+                        <label class="erp-field"><span class="erp-label">Read</span><input class="erp-input" name="reed" type="number" step="0.01" value="{{ old('reed', $editingQuality?->reed) }}"></label>
                         <label class="erp-field"><span class="erp-label">Pick</span><input class="erp-input" name="pick" type="number" step="0.01" value="{{ old('pick', $editingQuality?->pick) }}"></label>
-                        <label class="erp-field"><span class="erp-label">Width</span><input class="erp-input" name="width" type="number" step="0.01" value="{{ old('width', $editingQuality?->width) }}"></label>
+                        <label class="erp-field"><span class="erp-label">Witdh</span><input class="erp-input" name="width" type="number" step="0.01" value="{{ old('width', $editingQuality?->width) }}"></label>
                         <label class="erp-field"><span class="erp-label">Total Ends</span><input class="erp-input" name="total_ends" type="number" step="0.01" value="{{ old('total_ends', $editingQuality?->total_ends) }}"></label>
                         <label class="erp-field"><span class="erp-label">Blend</span>
                             <select class="erp-input" name="yarn_blend_id">
@@ -201,7 +201,7 @@
                 @csrf
                 <input type="hidden" name="tab" value="godowns">
                 <fieldset class="border border-slate-400 bg-[#f7f7f7] p-2">
-                    <legend class="px-1 text-[11px] font-semibold text-slate-700">Grey Godowns</legend>
+                    <legend class="px-1 text-[11px] font-semibold text-slate-700">Godowns</legend>
                     <table class="w-full border-collapse text-[11px]">
                         <thead>
                             <tr class="bg-[#d8d8d8]">
