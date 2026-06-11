@@ -4,6 +4,7 @@
         ['key' => 'accounts', 'label' => 'Accounts & finance', 'route' => 'erp.accounts.dashboard', 'permission' => 'accounts.dashboard.view'],
         ['key' => 'yarn', 'label' => 'Yarn management', 'route' => 'erp.yarn.dashboard', 'permission' => 'yarn.dashboard.view'],
         ['key' => 'grey', 'label' => 'Grey management', 'route' => 'erp.grey.dashboard', 'permission' => 'grey.dashboard.view'],
+        ['key' => 'weaving', 'label' => 'Weaving', 'route' => 'erp.weaving.dashboard', 'permission' => 'weaving.dashboard.view'],
         ['key' => 'reports', 'label' => 'Reports', 'route' => 'erp.reports.dashboard', 'permission' => 'reports.dashboard.view'],
         ['key' => 'docs', 'label' => 'ERP docs', 'route' => 'erp.docs', 'permission' => 'accounts.dashboard.view'],
         ['key' => 'admin', 'label' => 'Access management', 'route' => 'erp.admin.dashboard', 'permission' => 'admin.dashboard.view'],

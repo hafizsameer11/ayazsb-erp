@@ -4,6 +4,8 @@ use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Erp\AdminAccessController;
 use App\Http\Controllers\Erp\AccountsFinanceController;
 use App\Http\Controllers\Erp\DocumentationController;
+use App\Http\Controllers\Erp\WeavingMasterDataController;
+use App\Http\Controllers\Erp\WeavingPageController;
 use App\Http\Controllers\Erp\ModulePageController;
 use App\Http\Controllers\Erp\YarnMasterDataController;
 use App\Http\Controllers\Erp\ProfileController;
@@ -80,6 +82,20 @@ Route::middleware('auth')->group(function () {
         Route::delete('/grey/{screen}/contracts/{contract}', [ModulePageController::class, 'destroyGreyConversionContract'])->defaults('module', 'grey')->name('grey.screen.contract.destroy');
         Route::post('/grey/{screen}/{transaction}/post', [ModulePageController::class, 'postScreenData'])->defaults('module', 'grey')->name('grey.screen.post');
         Route::get('/grey/{screen}/{transaction}/print', [ModulePageController::class, 'printScreenData'])->defaults('module', 'grey')->name('grey.screen.print');
+
+        Route::get('/weaving', [WeavingPageController::class, 'dashboard'])->name('weaving.dashboard');
+        Route::get('/weaving/master-data', [WeavingMasterDataController::class, 'show'])->name('weaving.master-data');
+        Route::post('/weaving/master-data', [WeavingMasterDataController::class, 'store'])->name('weaving.master-data.store');
+        Route::get('/weaving/{screen}', [WeavingPageController::class, 'screen'])->name('weaving.screen');
+        Route::post('/weaving/{screen}', [WeavingPageController::class, 'store'])->name('weaving.screen.store');
+        Route::patch('/weaving/{screen}/{transaction}', [WeavingPageController::class, 'update'])->name('weaving.screen.update');
+        Route::delete('/weaving/{screen}/{transaction}', [WeavingPageController::class, 'destroy'])->name('weaving.screen.destroy');
+        Route::post('/weaving/{screen}/{transaction}/post', [WeavingPageController::class, 'post'])->name('weaving.screen.post');
+        Route::post('/weaving/{screen}/{transaction}/voucher', [WeavingPageController::class, 'generateVoucher'])->name('weaving.screen.voucher');
+        Route::patch('/weaving/{screen}/{transaction}/voucher', [WeavingPageController::class, 'updateVoucher'])->name('weaving.screen.voucher.update');
+        Route::post('/weaving/set-receipt/{set}/voucher', [WeavingPageController::class, 'generateSetVoucher'])->name('weaving.set.voucher');
+        Route::patch('/weaving/set-receipt/{set}/voucher', [WeavingPageController::class, 'updateSetVoucher'])->name('weaving.set.voucher.update');
+        Route::get('/weaving/{screen}/{transaction}/print', [WeavingPageController::class, 'print'])->name('weaving.screen.print');
 
         Route::get('/reports', [ModulePageController::class, 'dashboard'])->defaults('module', 'reports')->name('reports.dashboard');
         Route::get('/reports/{screen}', [ModulePageController::class, 'screen'])->defaults('module', 'reports')->name('reports.screen');

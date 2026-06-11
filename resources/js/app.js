@@ -8,6 +8,7 @@ import './grey-transaction-calculations';
 import './grey-form-lookups';
 import './grey-opening-calculations';
 import './grey-contract-calculations';
+import './weaving-calculations';
 import { initYarnMovementCalculations } from './yarn-movement-calculations';
 import { initYarnScreenCalculations } from './yarn-screen-calculations';
 
