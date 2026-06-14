@@ -53,6 +53,7 @@ COPY --from=frontend_build /app/public/build /var/www/html/public/build
 COPY docker/nginx/default.conf /etc/nginx/http.d/default.conf
 COPY docker/start.sh /usr/local/bin/start.sh
 
+# Container start runs migrate + optimize:clear via start.sh (needs DB at runtime).
 RUN chmod +x /usr/local/bin/start.sh \
     && mkdir -p /run/nginx \
     && chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache

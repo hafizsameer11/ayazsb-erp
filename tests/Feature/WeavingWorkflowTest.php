@@ -92,6 +92,10 @@ class WeavingWorkflowTest extends TestCase
                 $this->actingAs($admin)->get(route('erp.weaving.master-data'))->assertOk();
                 continue;
             }
+            if ($slug === 'items') {
+                $this->actingAs($admin)->get(route('erp.weaving.items'))->assertOk();
+                continue;
+            }
             $this->actingAs($admin)->get(route('erp.weaving.screen', ['screen' => $slug]))->assertOk();
         }
     }
@@ -179,7 +183,27 @@ class WeavingWorkflowTest extends TestCase
         $this->assertDatabaseCount('weaving_beams', 2);
     }
 
-    public function test_master_data_saves_department_and_store_item(): void
+    public function test_weaving_items_page_creates_auto_id(): void
+    {
+        $admin = $this->admin();
+
+        $this->actingAs($admin)->get(route('erp.weaving.items'))->assertOk();
+
+        $this->actingAs($admin)->post(route('erp.weaving.items.store'), [
+            'items' => [
+                ['name' => 'Weaving bolt', 'unit' => 'PCS', 'is_active' => 1],
+                ['name' => 'Loom needle pack', 'unit' => 'BOX', 'is_active' => 1],
+            ],
+        ])->assertRedirect(route('erp.weaving.items'));
+
+        $this->assertDatabaseHas('items', ['name' => 'Weaving bolt', 'module' => 'store', 'unit' => 'PCS']);
+        $this->assertDatabaseHas('items', ['name' => 'Loom needle pack', 'module' => 'store', 'unit' => 'BOX']);
+
+        $item = \App\Models\Item::query()->where('name', 'Weaving bolt')->firstOrFail();
+        $this->assertStringStartsWith('WIT', $item->code);
+    }
+
+    public function test_master_data_saves_department(): void
     {
         $admin = $this->admin();
 
@@ -191,15 +215,6 @@ class WeavingWorkflowTest extends TestCase
         ])->assertRedirect();
 
         $this->assertDatabaseHas('weaving_departments', ['code' => 'D02', 'name' => 'Sizing']);
-
-        $this->actingAs($admin)->post(route('erp.weaving.master-data.store'), [
-            'tab' => 'store-items',
-            'items' => [
-                ['code' => 'ST002', 'name' => 'Needle pack', 'unit' => 'BOX', 'is_active' => 1],
-            ],
-        ])->assertRedirect();
-
-        $this->assertDatabaseHas('items', ['code' => 'ST002', 'module' => 'store']);
     }
 
     public function test_purchase_return_and_fabric_issue_save(): void

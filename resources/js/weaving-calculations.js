@@ -38,8 +38,13 @@ function bindWeavingItemSelect(select) {
         const itemId = select.value;
         const stockEl = row.querySelector('[data-weaving-stock]');
         const uomEl = row.querySelector('[data-weaving-uom]');
+        const nameTarget = select.dataset.nameTarget ? document.querySelector(select.dataset.nameTarget) : null;
+        const descInput = row.querySelector('[data-weaving-item-description]');
+        const itemName = option?.dataset.name ?? '';
         if (stockEl) stockEl.textContent = itemId ? formatNum(stockMap[itemId] ?? 0) : '';
         if (uomEl) uomEl.textContent = option?.dataset.unit ?? '';
+        if (nameTarget) nameTarget.value = itemName;
+        if (descInput) descInput.value = itemName;
     });
 }
 
@@ -64,7 +69,10 @@ function initWeavingCalculations() {
             recalcWeavingTotals(form);
         });
 
-        form.querySelectorAll('[data-weaving-item-select]').forEach(bindWeavingItemSelect);
+        form.querySelectorAll('[data-weaving-item-select]').forEach((select) => {
+            bindWeavingItemSelect(select);
+            select.dispatchEvent(new Event('change'));
+        });
         form.querySelectorAll('[data-beam-select]').forEach(bindBeamSelect);
         recalcWeavingTotals(form);
     });

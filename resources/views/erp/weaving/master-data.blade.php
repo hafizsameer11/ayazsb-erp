@@ -15,9 +15,6 @@
         $blankLoom = ['id' => '', 'loom_no' => '', 'name' => '', 'loom_type' => '', 'is_active' => true];
         $loomRows = $looms->map(fn ($l) => ['id' => $l->id, 'loom_no' => $l->loom_no, 'name' => $l->name, 'loom_type' => $l->loom_type, 'is_active' => $l->is_active])->all();
         while (count($loomRows) < 8) { $loomRows[] = $blankLoom; }
-        $blankItem = ['id' => '', 'code' => '', 'name' => '', 'unit' => 'PCS', 'is_active' => true];
-        $itemRows = $storeItems->map(fn ($i) => ['id' => $i->id, 'code' => $i->code, 'name' => $i->name, 'unit' => $i->unit, 'is_active' => $i->is_active])->all();
-        while (count($itemRows) < 8) { $itemRows[] = $blankItem; }
         $accountFields = [
             'store_stock_account_id' => 'Store Stock Account',
             'yarn_stock_account_id' => 'Yarn Stock Account',
@@ -31,7 +28,7 @@
     <div class="erp-panel border border-slate-500 bg-white shadow-md">
         <div class="border-b border-slate-400 bg-[#e8e8e8] px-3 py-2 text-[12px] font-semibold text-slate-800">{{ $screen['code'] }} — WEAVING MASTER DATA</div>
         <nav class="flex flex-wrap gap-1 border-b border-slate-300 px-2 pt-2 text-[11px]">
-            @foreach (['departments' => 'Departments', 'looms' => 'Looms', 'store-items' => 'Store Items', 'account-settings' => 'Account Mapping'] as $key => $label)
+            @foreach (['departments' => 'Departments', 'looms' => 'Looms', 'account-settings' => 'Account Mapping'] as $key => $label)
                 <a href="{{ route('erp.weaving.master-data', ['tab' => $key]) }}" class="-mb-px border border-b-0 border-slate-400 px-3 py-1.5 font-semibold {{ $activeTab === $key ? 'bg-white text-slate-900' : 'bg-[#d8d8d8] text-slate-600 hover:bg-[#ececec]' }}">{{ $label }}</a>
             @endforeach
         </nav>
@@ -74,7 +71,7 @@
                         @endforeach
                     </tbody>
                 </table>
-            @elseif ($activeTab === 'looms')
+            @else
                 <table class="w-full border-collapse text-[11px]" data-erp-detail-lines>
                     <thead class="bg-[#d8d8d8]"><tr><th class="border border-slate-400 px-1 py-1">Loom #</th><th class="border border-slate-400 px-1 py-1">Name</th><th class="border border-slate-400 px-1 py-1">Type</th><th class="border border-slate-400 px-1 py-1">Active</th></tr></thead>
                     <tbody>
@@ -85,21 +82,6 @@
                                 <td class="border border-slate-300 p-0.5"><input class="erp-input w-full" name="looms[{{ $i }}][name]" value="{{ $row['name'] }}"></td>
                                 <td class="border border-slate-300 p-0.5"><input class="erp-input w-full" name="looms[{{ $i }}][loom_type]" value="{{ $row['loom_type'] }}"></td>
                                 <td class="border border-slate-300 px-2 text-center"><input type="checkbox" name="looms[{{ $i }}][is_active]" value="1" @checked($row['is_active'])></td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            @else
-                <table class="w-full border-collapse text-[11px]" data-erp-detail-lines>
-                    <thead class="bg-[#d8d8d8]"><tr><th class="border border-slate-400 px-1 py-1">Code</th><th class="border border-slate-400 px-1 py-1">Name</th><th class="border border-slate-400 px-1 py-1">Unit</th><th class="border border-slate-400 px-1 py-1">Active</th></tr></thead>
-                    <tbody>
-                        @foreach ($itemRows as $i => $row)
-                            <tr data-erp-detail-line>
-                                @if ($row['id'])<input type="hidden" name="items[{{ $i }}][id]" value="{{ $row['id'] }}">@endif
-                                <td class="border border-slate-300 p-0.5"><input class="erp-input w-full" name="items[{{ $i }}][code]" value="{{ $row['code'] }}"></td>
-                                <td class="border border-slate-300 p-0.5"><input class="erp-input w-full" name="items[{{ $i }}][name]" value="{{ $row['name'] }}"></td>
-                                <td class="border border-slate-300 p-0.5"><input class="erp-input w-full" name="items[{{ $i }}][unit]" value="{{ $row['unit'] }}"></td>
-                                <td class="border border-slate-300 px-2 text-center"><input type="checkbox" name="items[{{ $i }}][is_active]" value="1" @checked($row['is_active'])></td>
                             </tr>
                         @endforeach
                     </tbody>

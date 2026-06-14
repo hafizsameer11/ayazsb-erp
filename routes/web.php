@@ -4,6 +4,7 @@ use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Erp\AdminAccessController;
 use App\Http\Controllers\Erp\AccountsFinanceController;
 use App\Http\Controllers\Erp\DocumentationController;
+use App\Http\Controllers\Erp\WeavingItemsController;
 use App\Http\Controllers\Erp\WeavingMasterDataController;
 use App\Http\Controllers\Erp\WeavingPageController;
 use App\Http\Controllers\Erp\ModulePageController;
@@ -86,6 +87,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/weaving', [WeavingPageController::class, 'dashboard'])->name('weaving.dashboard');
         Route::get('/weaving/master-data', [WeavingMasterDataController::class, 'show'])->name('weaving.master-data');
         Route::post('/weaving/master-data', [WeavingMasterDataController::class, 'store'])->name('weaving.master-data.store');
+        Route::get('/weaving/items', [WeavingItemsController::class, 'show'])->name('weaving.items');
+        Route::post('/weaving/items', [WeavingItemsController::class, 'store'])->name('weaving.items.store');
         Route::get('/weaving/{screen}', [WeavingPageController::class, 'screen'])->name('weaving.screen');
         Route::post('/weaving/{screen}', [WeavingPageController::class, 'store'])->name('weaving.screen.store');
         Route::patch('/weaving/{screen}/{transaction}', [WeavingPageController::class, 'update'])->name('weaving.screen.update');

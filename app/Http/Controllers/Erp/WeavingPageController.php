@@ -93,6 +93,10 @@ class WeavingPageController extends Controller
             return redirect()->route('erp.weaving.master-data');
         }
 
+        if ($screen === 'items') {
+            return redirect()->route('erp.weaving.items');
+        }
+
         $viewData = $this->baseViewData($screenMeta);
         $viewData = array_merge($viewData, $this->lookupData());
         $viewData = array_merge($viewData, RecordHistory::buildForDay(
@@ -627,7 +631,7 @@ class WeavingPageController extends Controller
             'accountParties' => Account::query()->postable()->orderBy('code')->get(),
             'departments' => WeavingDepartment::query()->where('is_active', true)->orderBy('code')->get(),
             'looms' => WeavingLoom::query()->where('is_active', true)->orderBy('loom_no')->get(),
-            'storeItems' => Item::query()->whereIn('module', ['store', 'shared'])->where('is_active', true)->orderBy('code')->get(),
+            'storeItems' => Item::query()->where('module', 'store')->where('is_active', true)->orderBy('code')->get(),
             'yarnItems' => Item::query()->whereIn('module', ['yarn', 'shared'])->where('is_active', true)->orderBy('code')->get(),
             'greyQualities' => GreyQuality::query()->where('is_active', true)->orderBy('quality_no')->get(),
             'conversionContracts' => GreyConversionContract::query()->with('account', 'quality')->orderByDesc('contract_date')->get(),

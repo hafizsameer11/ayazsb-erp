@@ -54,6 +54,8 @@ class PermissionRegistry
             'erp.weaving.dashboard' => 'weaving.dashboard.view',
             'erp.weaving.master-data' => 'weaving.master-data.view',
             'erp.weaving.master-data.store' => 'weaving.master-data.create',
+            'erp.weaving.items' => 'weaving.items.view',
+            'erp.weaving.items.store' => 'weaving.items.create',
             'erp.weaving.screen' => 'weaving.store-issue.view',
             'erp.weaving.screen.update' => 'weaving.screen.edit',
             'erp.weaving.screen.destroy' => 'admin.records.delete',

@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Erp;
 use App\Http\Concerns\AuthorizesWeaving;
 use App\Http\Controllers\Controller;
 use App\Models\Account;
-use App\Models\Item;
 use App\Models\WeavingAccountSetting;
 use App\Models\WeavingDepartment;
 use App\Models\WeavingLoom;
@@ -23,7 +22,7 @@ class WeavingMasterDataController extends Controller
         abort_unless($this->weavingAllowed('master-data', 'view'), 403);
 
         $tab = $request->query('tab', 'departments');
-        if (! in_array($tab, ['departments', 'looms', 'store-items', 'account-settings'], true)) {
+        if (! in_array($tab, ['departments', 'looms', 'account-settings'], true)) {
             $tab = 'departments';
         }
 
@@ -42,7 +41,6 @@ class WeavingMasterDataController extends Controller
             ],
             'departments' => WeavingDepartment::query()->with('expenseAccount')->orderBy('code')->get(),
             'looms' => WeavingLoom::query()->orderBy('loom_no')->get(),
-            'storeItems' => Item::query()->whereIn('module', ['store', 'shared'])->orderBy('code')->get(),
             'accountParties' => Account::query()->postable()->orderBy('code')->get(),
             'accountSettings' => WeavingAccountSetting::current()->load([
                 'storeStockAccount', 'yarnStockAccount', 'greyStockAccount',
@@ -60,7 +58,6 @@ class WeavingMasterDataController extends Controller
 
         return match ($tab) {
             'looms' => $this->storeLooms($request),
-            'store-items' => $this->storeItems($request),
             'account-settings' => $this->storeAccountSettings($request),
             default => $this->storeDepartments($request),
         };
@@ -129,35 +126,6 @@ class WeavingMasterDataController extends Controller
         }
 
         return redirect()->route('erp.weaving.master-data', ['tab' => 'looms'])->with('status', 'Looms saved.');
-    }
-
-    private function storeItems(Request $request): RedirectResponse
-    {
-        $data = $request->validate([
-            'items' => ['required', 'array'],
-            'items.*.id' => ['nullable', 'integer'],
-            'items.*.code' => ['nullable', 'string', 'max:40'],
-            'items.*.name' => ['nullable', 'string', 'max:255'],
-            'items.*.unit' => ['nullable', 'string', 'max:20'],
-            'items.*.is_active' => ['nullable', 'boolean'],
-        ]);
-
-        foreach ($data['items'] as $row) {
-            if (empty($row['code']) && empty($row['name'])) {
-                continue;
-            }
-            Item::query()->updateOrCreate(
-                ['code' => $row['code']],
-                [
-                    'name' => $row['name'] ?? $row['code'],
-                    'module' => 'store',
-                    'unit' => $row['unit'] ?? 'PCS',
-                    'is_active' => ! empty($row['is_active']),
-                ]
-            );
-        }
-
-        return redirect()->route('erp.weaving.master-data', ['tab' => 'store-items'])->with('status', 'Store items saved.');
     }
 
     private function storeAccountSettings(Request $request): RedirectResponse

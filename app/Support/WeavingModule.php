@@ -43,6 +43,7 @@ class WeavingModule
                     ['slug' => 'rejection-stock-quality-transfer', 'label' => 'Rejection Stock Quality Transfer Adjustment', 'code' => 'WEAVSP_0039'],
                 ],
                 'Setup' => [
+                    ['slug' => 'items', 'label' => 'Weaving Items', 'code' => 'WEAVSP_0005'],
                     ['slug' => 'master-data', 'label' => 'Weaving Master Data', 'code' => 'WEAVSP_0004'],
                 ],
             ],

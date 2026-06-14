@@ -82,6 +82,7 @@
             @include($gridPartial, [
                 'editingTransaction' => $editingTransaction,
                 'meta' => $meta,
+                'screen' => $screen,
             ])
 
             @if ($showVoucher)
