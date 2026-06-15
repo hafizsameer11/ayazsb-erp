@@ -36,7 +36,7 @@
             @csrf
             <input type="hidden" name="tab" value="{{ $activeTab }}">
             @if ($activeTab === 'account-settings')
-                <p class="mb-3 text-[11px] text-slate-600">Map weaving stock and control accounts to sub-ledgers from Chart of Accounts. Party accounts are picked on each transaction screen.</p>
+                <p class="mb-3 text-[11px] text-slate-600">Map weaving stock and control accounts to sub-ledgers from the Weaving Chart of Accounts. Party accounts are picked on each transaction screen.</p>
                 <div class="grid gap-3 md:grid-cols-2">
                     @foreach ($accountFields as $field => $label)
                         <label class="erp-field"><span class="erp-label">{{ $label }}</span>

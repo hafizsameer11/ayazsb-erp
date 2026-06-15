@@ -11,6 +11,7 @@ use App\Models\AccountOpening;
 use App\Models\FinancialYear;
 use App\Models\Voucher;
 use App\Models\VoucherLine;
+use App\Services\ChartOfAccountsService;
 use App\Services\PostingService;
 use App\Services\VoucherNumberService;
 use App\Support\RecordHistory;
@@ -42,20 +43,16 @@ class AccountsFinanceController extends Controller
     {
         $this->ensurePermission('accounts.coa.view');
 
-        $levelOrder = "CASE level WHEN 'head' THEN 1 WHEN 'control' THEN 2 WHEN 'ledger' THEN 3 WHEN 'sub_ledger' THEN 4 ELSE 5 END";
+        $service = ChartOfAccountsService::general();
 
         return view('erp.accounts.coa', [
             ...$this->withBreadcrumbs('Chart of Accounts', 'erp.accounts.coa', 'accounts.coa'),
-            'accounts' => Account::query()
-                ->with('parent')
-                ->orderByRaw($levelOrder)
-                ->orderBy('code')
-                ->get(),
-            'coaParentsJson' => [
-                'control' => Account::query()->where('level', 'head')->whereNull('parent_id')->orderBy('code')->get(['id', 'code', 'name'])->values(),
-                'ledger' => Account::query()->where('level', 'control')->orderBy('code')->get(['id', 'code', 'name'])->values(),
-                'sub_ledger' => Account::query()->where('level', 'ledger')->orderBy('code')->get(['id', 'code', 'name'])->values(),
-            ],
+            'accounts' => $service->accountsForListing(),
+            'coaParentsJson' => $service->parentsJson(),
+            'coaTitle' => 'ACCNTS_0003 — Chart of accounts (COA)',
+            'coaStoreRoute' => route('erp.accounts.coa.store'),
+            'coaUpdateBase' => url('/erp/accounts/coa'),
+            'coaPermissionPrefix' => 'accounts.coa',
         ]);
     }
 
@@ -72,7 +69,7 @@ class AccountsFinanceController extends Controller
 
         return view('erp.accounts.accounts-opening', [
             ...$this->withBreadcrumbs('Accounts Opening', 'erp.accounts.opening', 'accounts.opening'),
-            'accounts' => Account::query()->postable()->orderBy('code')->get(),
+            'accounts' => Account::query()->forGeneral()->postable()->orderBy('code')->get(),
             'financialYears' => FinancialYear::query()->orderByDesc('start_date')->get(),
             'editingOpening' => $editingOpening,
             ...RecordHistory::buildForDay($request, $openingQuery, 'voucher_date', 'erp.accounts.opening'),
@@ -123,44 +120,9 @@ class AccountsFinanceController extends Controller
     {
         $this->ensurePermission('accounts.coa.create');
 
-        $validated = $request->validate([
-            'level' => ['required', 'string', Rule::in(['head', 'control', 'ledger', 'sub_ledger'])],
-            'name' => ['required', 'string', 'max:255'],
-            'parent_id' => ['nullable', 'integer', 'exists:accounts,id'],
-        ]);
-
-        $level = $validated['level'];
-        $parentId = $validated['parent_id'] ?? null;
-        $parent = null;
-
-        if ($level === 'head') {
-            $parentId = null;
-        } else {
-            if ($parentId === null) {
-                return back()->withErrors(['parent_id' => 'Select a parent account.'])->withInput();
-            }
-            $parent = Account::query()->findOrFail($parentId);
-            $expectedParentLevel = match ($level) {
-                'control' => 'head',
-                'ledger' => 'control',
-                'sub_ledger' => 'ledger',
-                default => null,
-            };
-            if ($expectedParentLevel === null || $parent->level !== $expectedParentLevel) {
-                return back()->withErrors(['parent_id' => 'Parent account does not match this level.'])->withInput();
-            }
-        }
-
-        $local = $this->nextLocalSegmentNumber($level, $parent);
-        $code = $this->buildHierarchicalCode($level, $parent, $local);
-
-        Account::query()->create([
-            'level' => $level,
-            'code' => $code,
-            'name' => $validated['name'],
-            'parent_id' => $parentId,
-            'is_active' => true,
-        ]);
+        $service = ChartOfAccountsService::general();
+        $validated = $request->validate($service->storeValidationRules());
+        $service->create($validated);
 
         return back()->with('status', 'Account created.');
     }
@@ -169,59 +131,9 @@ class AccountsFinanceController extends Controller
     {
         $this->ensurePermission('accounts.coa.edit');
 
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'is_active' => ['sometimes', 'boolean'],
-            'parent_id' => ['nullable', 'integer', 'exists:accounts,id'],
-        ]);
-
-        $level = $account->level;
-        $parentId = $validated['parent_id'] ?? $account->parent_id;
-        $parent = null;
-
-        if ($level === 'head') {
-            $parentId = null;
-        } elseif ($parentId === null) {
-            return back()->withErrors(['parent_id' => 'Select a parent account.'])->withInput();
-        } else {
-            $parent = Account::query()->findOrFail($parentId);
-            $expectedParentLevel = match ($level) {
-                'control' => 'head',
-                'ledger' => 'control',
-                'sub_ledger' => 'ledger',
-                default => null,
-            };
-            if ($expectedParentLevel === null || $parent->level !== $expectedParentLevel) {
-                return back()->withErrors(['parent_id' => 'Parent account does not match this level.'])->withInput();
-            }
-        }
-
-        $updates = [
-            'name' => $validated['name'],
-            'is_active' => $request->boolean('is_active'),
-        ];
-
-        if ($level !== 'head' && (int) $parentId !== (int) $account->parent_id) {
-            $oldParent = $account->parent;
-            $suffix = (string) $account->code;
-            if ($oldParent !== null && str_starts_with($suffix, (string) $oldParent->code)) {
-                $suffix = substr($suffix, strlen((string) $oldParent->code));
-            }
-            $local = ctype_digit($suffix) && $suffix !== '' ? (int) $suffix : $this->nextLocalSegmentNumber($level, $parent);
-            $newCode = $this->buildHierarchicalCode($level, $parent, $local);
-
-            if (Account::query()->where('code', $newCode)->where('id', '!=', $account->id)->exists()) {
-                $local = $this->nextLocalSegmentNumber($level, $parent);
-                $newCode = $this->buildHierarchicalCode($level, $parent, $local);
-            }
-
-            $updates['parent_id'] = $parentId;
-            $updates['code'] = $newCode;
-        } elseif ($level !== 'head') {
-            $updates['parent_id'] = $parentId;
-        }
-
-        $account->update($updates);
+        $service = ChartOfAccountsService::general();
+        $validated = $request->validate($service->updateValidationRules());
+        $account = $service->update($account, $validated, $request);
 
         return back()->with('status', "Account {$account->code} updated.");
     }
@@ -257,7 +169,7 @@ class AccountsFinanceController extends Controller
             'account_id' => [
                 'required',
                 'integer',
-                Rule::exists('accounts', 'id')->where(fn ($q) => $q->where('level', 'sub_ledger')->where('is_active', true)),
+                Rule::exists('accounts', 'id')->where(fn ($q) => $q->where('ledger', Account::LEDGER_GENERAL)->where('level', 'sub_ledger')->where('is_active', true)),
             ],
             'narration' => ['nullable', 'string', 'max:255'],
             'debit' => ['nullable', 'numeric', 'min:0'],
@@ -290,7 +202,7 @@ class AccountsFinanceController extends Controller
             'account_id' => [
                 'required',
                 'integer',
-                Rule::exists('accounts', 'id')->where(fn ($q) => $q->where('level', 'sub_ledger')->where('is_active', true)),
+                Rule::exists('accounts', 'id')->where(fn ($q) => $q->where('ledger', Account::LEDGER_GENERAL)->where('level', 'sub_ledger')->where('is_active', true)),
             ],
             'narration' => ['nullable', 'string', 'max:255'],
             'debit' => ['nullable', 'numeric', 'min:0'],
@@ -343,7 +255,7 @@ class AccountsFinanceController extends Controller
             'lines.*.account_id' => [
                 'nullable',
                 'integer',
-                Rule::exists('accounts', 'id')->where(fn ($q) => $q->where('level', 'sub_ledger')->where('is_active', true)),
+                Rule::exists('accounts', 'id')->where(fn ($q) => $q->where('ledger', Account::LEDGER_GENERAL)->where('level', 'sub_ledger')->where('is_active', true)),
             ],
             'lines.*.description' => ['nullable', 'string', 'max:255'],
             'lines.*.debit' => ['nullable', 'numeric', 'min:0'],
@@ -411,7 +323,7 @@ class AccountsFinanceController extends Controller
             'lines.*.account_id' => [
                 'nullable',
                 'integer',
-                Rule::exists('accounts', 'id')->where(fn ($q) => $q->where('level', 'sub_ledger')->where('is_active', true)),
+                Rule::exists('accounts', 'id')->where(fn ($q) => $q->where('ledger', Account::LEDGER_GENERAL)->where('level', 'sub_ledger')->where('is_active', true)),
             ],
             'lines.*.description' => ['nullable', 'string', 'max:255'],
             'lines.*.debit' => ['nullable', 'numeric', 'min:0'],
@@ -550,70 +462,6 @@ class AccountsFinanceController extends Controller
         ];
     }
 
-    /** @var array<string, int> */
-    private const LEVEL_SEGMENT_WIDTH = [
-        'head' => 2,
-        'control' => 3,
-        'ledger' => 4,
-        'sub_ledger' => 5,
-    ];
-
-    private function segmentWidthForLevel(string $level): int
-    {
-        return self::LEVEL_SEGMENT_WIDTH[$level] ?? 2;
-    }
-
-    private function nextLocalSegmentNumber(string $level, ?Account $parent): int
-    {
-        if ($level === 'head') {
-            $max = 0;
-            foreach (Account::query()->where('level', 'head')->whereNull('parent_id')->pluck('code') as $c) {
-                if ($c !== null && $c !== '' && ctype_digit((string) $c)) {
-                    $max = max($max, (int) $c);
-                }
-            }
-
-            return $max + 1;
-        }
-
-        if ($parent === null) {
-            return 1;
-        }
-
-        $prefix = (string) $parent->code;
-        $prefixLen = strlen($prefix);
-        $max = 0;
-
-        foreach (Account::query()->where('parent_id', $parent->id)->pluck('code') as $c) {
-            $c = (string) $c;
-            if ($prefixLen > 0 && ! str_starts_with($c, $prefix)) {
-                continue;
-            }
-            $suffix = substr($c, $prefixLen);
-            if ($suffix === '' || ! ctype_digit($suffix)) {
-                continue;
-            }
-            $max = max($max, (int) $suffix);
-        }
-
-        return $max + 1;
-    }
-
-    private function buildHierarchicalCode(string $level, ?Account $parent, int $localNumber): string
-    {
-        $segment = str_pad((string) $localNumber, $this->segmentWidthForLevel($level), '0', STR_PAD_LEFT);
-
-        if ($level === 'head') {
-            return $segment;
-        }
-
-        if ($parent === null) {
-            throw new \InvalidArgumentException('Parent account is required to build a non-head code.');
-        }
-
-        return $parent->code . $segment;
-    }
-
     private function ensurePermission(string $permission): void
     {
         $user = Auth::user();
@@ -645,7 +493,7 @@ class AccountsFinanceController extends Controller
             'voucherCode' => $voucherCode,
             'voucherTitle' => $title,
             'formId' => $formId,
-            'accounts' => Account::query()->postable()->orderBy('code')->get(),
+            'accounts' => Account::query()->forGeneral()->postable()->orderBy('code')->get(),
             'financialYears' => FinancialYear::query()->orderByDesc('start_date')->get(),
             'voucherSlug' => $slug,
             'editingVoucher' => $editingVoucher,

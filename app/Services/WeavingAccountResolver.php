@@ -16,7 +16,7 @@ class WeavingAccountResolver
             return null;
         }
 
-        return Account::query()->postable()->find($id);
+        return Account::query()->forWeaving()->postable()->find($id);
     }
 
     /**
@@ -69,7 +69,7 @@ class WeavingAccountResolver
     {
         if (! $account instanceof Account) {
             throw ValidationException::withMessages([
-                'account_id' => "{$label} sub-ledger is not set. Configure it under Weaving Master Data → Account Mapping, or pick CC / party on the form.",
+                'account_id' => "{$label} sub-ledger is not set. Configure it under Weaving Master Data → Account Mapping (using weaving COA accounts), or pick CC / party on the form.",
             ]);
         }
 

@@ -97,6 +97,10 @@ class WeavingPageController extends Controller
             return redirect()->route('erp.weaving.items');
         }
 
+        if ($screen === 'coa') {
+            return redirect()->route('erp.weaving.coa');
+        }
+
         $viewData = $this->baseViewData($screenMeta);
         $viewData = array_merge($viewData, $this->lookupData());
         $viewData = array_merge($viewData, RecordHistory::buildForDay(
@@ -384,7 +388,10 @@ class WeavingPageController extends Controller
         return [
             $required ? 'required' : 'nullable',
             'integer',
-            Rule::exists('accounts', 'id')->where(fn ($query) => $query->where('level', 'sub_ledger')->where('is_active', true)),
+            Rule::exists('accounts', 'id')->where(fn ($query) => $query
+                ->where('ledger', Account::LEDGER_WEAVING)
+                ->where('level', 'sub_ledger')
+                ->where('is_active', true)),
         ];
     }
 
@@ -628,7 +635,7 @@ class WeavingPageController extends Controller
         $stock = app(WeavingStockService::class);
 
         return [
-            'accountParties' => Account::query()->postable()->orderBy('code')->get(),
+            'accountParties' => Account::query()->forWeaving()->postable()->orderBy('code')->get(),
             'departments' => WeavingDepartment::query()->where('is_active', true)->orderBy('code')->get(),
             'looms' => WeavingLoom::query()->where('is_active', true)->orderBy('loom_no')->get(),
             'storeItems' => Item::query()->where('module', 'store')->where('is_active', true)->orderBy('code')->get(),

@@ -22,6 +22,7 @@
                                                 $moduleKey === 'grey' && $item['slug'] === 'master-data' => route('erp.grey.master-data'),
                                                 $moduleKey === 'weaving' && $item['slug'] === 'master-data' => route('erp.weaving.master-data'),
                                                 $moduleKey === 'weaving' && $item['slug'] === 'items' => route('erp.weaving.items'),
+                                                $moduleKey === 'weaving' && $item['slug'] === 'coa' => route('erp.weaving.coa'),
                                                 default => route('erp.' . $moduleKey . '.screen', ['screen' => $item['slug']]),
                                             };
                                         @endphp

@@ -29,7 +29,7 @@ class ErpMasterSeeder extends Seeder
 
         foreach ($accounts as $account) {
             Account::query()->updateOrCreate(
-                ['level' => 'head', 'name' => $account['name']],
+                ['level' => 'head', 'name' => $account['name'], 'ledger' => Account::LEDGER_GENERAL],
                 [
                     'code' => $account['code'],
                     'parent_id' => null,

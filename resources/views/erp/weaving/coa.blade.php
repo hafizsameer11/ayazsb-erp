@@ -1,6 +1,6 @@
 @extends('layouts.erp')
 
-@section('title', 'Chart of accounts')
+@section('title', 'Weaving chart of accounts')
 
 @section('content')
     @include('erp.partials.coa-panel')

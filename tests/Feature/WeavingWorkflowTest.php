@@ -34,21 +34,27 @@ class WeavingWorkflowTest extends TestCase
         );
 
         $assetHead = \App\Models\Account::query()->create([
+            'ledger' => \App\Models\Account::LEDGER_WEAVING,
             'level' => 'head', 'code' => '01', 'name' => 'Assets', 'is_active' => true,
         ]);
         $control = \App\Models\Account::query()->create([
+            'ledger' => \App\Models\Account::LEDGER_WEAVING,
             'level' => 'control', 'code' => '01001', 'name' => 'Control', 'parent_id' => $assetHead->id, 'is_active' => true,
         ]);
         $ledger = \App\Models\Account::query()->create([
+            'ledger' => \App\Models\Account::LEDGER_WEAVING,
             'level' => 'ledger', 'code' => '010010001', 'name' => 'Ledger', 'parent_id' => $control->id, 'is_active' => true,
         ]);
         \App\Models\Account::query()->create([
+            'ledger' => \App\Models\Account::LEDGER_WEAVING,
             'level' => 'sub_ledger', 'code' => '01001000100001', 'name' => 'Weaving Party', 'parent_id' => $ledger->id, 'is_active' => true,
         ]);
         \App\Models\Account::query()->create([
+            'ledger' => \App\Models\Account::LEDGER_WEAVING,
             'level' => 'sub_ledger', 'code' => '01001000100002', 'name' => 'Store Stock', 'parent_id' => $ledger->id, 'is_active' => true,
         ]);
         \App\Models\Account::query()->create([
+            'ledger' => \App\Models\Account::LEDGER_WEAVING,
             'level' => 'sub_ledger', 'code' => '01001000100003', 'name' => 'Store Expense', 'parent_id' => $ledger->id, 'is_active' => true,
         ]);
 
@@ -96,6 +102,10 @@ class WeavingWorkflowTest extends TestCase
                 $this->actingAs($admin)->get(route('erp.weaving.items'))->assertOk();
                 continue;
             }
+            if ($slug === 'coa') {
+                $this->actingAs($admin)->get(route('erp.weaving.coa'))->assertOk();
+                continue;
+            }
             $this->actingAs($admin)->get(route('erp.weaving.screen', ['screen' => $slug]))->assertOk();
         }
     }
@@ -126,7 +136,7 @@ class WeavingWorkflowTest extends TestCase
     {
         $admin = $this->admin();
         $item = \App\Models\Item::query()->where('code', 'ST001')->firstOrFail();
-        $party = \App\Models\Account::query()->postable()->firstOrFail();
+        $party = \App\Models\Account::query()->forWeaving()->postable()->firstOrFail();
 
         $this->actingAs($admin)->post(route('erp.weaving.screen.store', ['screen' => 'purchase-order']), [
             'trans_date' => now()->toDateString(),
@@ -147,7 +157,7 @@ class WeavingWorkflowTest extends TestCase
 
         $this->actingAs($admin)->post(route('erp.weaving.screen.store', ['screen' => 'yarn-receipt']), [
             'trans_date' => now()->toDateString(),
-            'account_id' => \App\Models\Account::query()->postable()->firstOrFail()->id,
+            'account_id' => \App\Models\Account::query()->forWeaving()->postable()->firstOrFail()->id,
             'lines' => [['item_id' => $yarn->id, 'qty' => 50, 'rate' => 10, 'amount' => 500]],
         ])->assertRedirect();
 
@@ -221,7 +231,7 @@ class WeavingWorkflowTest extends TestCase
     {
         $admin = $this->admin();
         $item = \App\Models\Item::query()->where('code', 'ST001')->firstOrFail();
-        $party = \App\Models\Account::query()->postable()->firstOrFail();
+        $party = \App\Models\Account::query()->forWeaving()->postable()->firstOrFail();
         $quality = \App\Models\GreyQuality::query()->firstOrFail();
         $stock = app(\App\Services\WeavingStockService::class);
 
@@ -331,5 +341,25 @@ class WeavingWorkflowTest extends TestCase
         $this->assertEquals(500.0, (float) $voucher->total_debit);
         $this->assertEquals(500.0, (float) $voucher->total_credit);
         $this->assertTrue($voucher->lines->every(fn ($line) => $line->account?->level === 'sub_ledger'));
+        $this->assertTrue($voucher->lines->every(fn ($line) => $line->account?->ledger === \App\Models\Account::LEDGER_WEAVING));
+    }
+
+    public function test_weaving_coa_is_separate_from_general_coa(): void
+    {
+        $admin = $this->admin();
+
+        $this->actingAs($admin)->post(route('erp.weaving.coa.store'), [
+            'level' => 'head',
+            'name' => 'Weaving Assets',
+        ])->assertRedirect();
+
+        $this->actingAs($admin)->get(route('erp.weaving.coa'))->assertOk()->assertSee('WEAVING ASSETS');
+        $this->actingAs($admin)->get(route('erp.accounts.coa'))->assertOk()->assertDontSee('WEAVING ASSETS');
+
+        $this->assertDatabaseHas('accounts', [
+            'name' => 'WEAVING ASSETS',
+            'ledger' => \App\Models\Account::LEDGER_WEAVING,
+            'level' => 'head',
+        ]);
     }
 }

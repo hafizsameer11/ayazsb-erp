@@ -10,12 +10,21 @@ use Illuminate\Support\Str;
 
 class Account extends Model
 {
+    public const LEDGER_GENERAL = 'general';
+
+    public const LEDGER_WEAVING = 'weaving';
+
     protected $fillable = [
+        'ledger',
         'level',
         'code',
         'name',
         'parent_id',
         'is_active',
+    ];
+
+    protected $attributes = [
+        'ledger' => self::LEDGER_GENERAL,
     ];
 
     public function setNameAttribute(?string $value): void
@@ -39,5 +48,20 @@ class Account extends Model
     public function scopePostable(Builder $query): Builder
     {
         return $query->where('level', 'sub_ledger')->where('is_active', true);
+    }
+
+    public function scopeForLedger(Builder $query, string $ledger): Builder
+    {
+        return $query->where('ledger', $ledger);
+    }
+
+    public function scopeForGeneral(Builder $query): Builder
+    {
+        return $query->forLedger(self::LEDGER_GENERAL);
+    }
+
+    public function scopeForWeaving(Builder $query): Builder
+    {
+        return $query->forLedger(self::LEDGER_WEAVING);
     }
 }

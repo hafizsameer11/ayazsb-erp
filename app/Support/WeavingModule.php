@@ -44,6 +44,7 @@ class WeavingModule
                 ],
                 'Setup' => [
                     ['slug' => 'items', 'label' => 'Weaving Items', 'code' => 'WEAVSP_0005'],
+                    ['slug' => 'coa', 'label' => 'Weaving Chart of Accounts', 'code' => 'WEAVSP_0006'],
                     ['slug' => 'master-data', 'label' => 'Weaving Master Data', 'code' => 'WEAVSP_0004'],
                 ],
             ],

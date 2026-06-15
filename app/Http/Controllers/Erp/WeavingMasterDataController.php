@@ -41,7 +41,7 @@ class WeavingMasterDataController extends Controller
             ],
             'departments' => WeavingDepartment::query()->with('expenseAccount')->orderBy('code')->get(),
             'looms' => WeavingLoom::query()->orderBy('loom_no')->get(),
-            'accountParties' => Account::query()->postable()->orderBy('code')->get(),
+            'accountParties' => Account::query()->forWeaving()->postable()->orderBy('code')->get(),
             'accountSettings' => WeavingAccountSetting::current()->load([
                 'storeStockAccount', 'yarnStockAccount', 'greyStockAccount',
                 'defaultExpenseAccount', 'sizingExpenseAccount',
@@ -67,7 +67,10 @@ class WeavingMasterDataController extends Controller
     {
         return [
             'nullable', 'integer',
-            Rule::exists('accounts', 'id')->where(fn ($q) => $q->where('level', 'sub_ledger')->where('is_active', true)),
+            Rule::exists('accounts', 'id')->where(fn ($q) => $q
+                ->where('ledger', Account::LEDGER_WEAVING)
+                ->where('level', 'sub_ledger')
+                ->where('is_active', true)),
         ];
     }
 
