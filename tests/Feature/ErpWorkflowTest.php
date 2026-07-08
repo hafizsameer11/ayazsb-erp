@@ -203,6 +203,137 @@ class ErpWorkflowTest extends TestCase
         $this->assertDatabaseHas('vouchers', ['module' => 'accounts', 'voucher_type' => 'JV']);
     }
 
+    public function test_cash_payment_voucher_can_save_without_balanced_sides(): void
+    {
+        $admin = \App\Models\User::query()->where('email', 'admin@erp.local')->firstOrFail();
+        $fy = \App\Models\FinancialYear::query()->firstOrFail();
+        $account = \App\Models\Account::query()->postable()->firstOrFail();
+
+        $response = $this->actingAs($admin)->post(route('erp.accounts.vouchers.store', ['voucherType' => 'cp']), [
+            'voucher_date' => now()->toDateString(),
+            'financial_year_id' => $fy->id,
+            'remarks' => 'Unbalanced CP voucher',
+            'lines' => [
+                ['account_id' => $account->id, 'description' => 'Cash payment line', 'debit' => 0, 'credit' => 1000],
+            ],
+        ]);
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('vouchers', [
+            'module' => 'accounts',
+            'voucher_type' => 'CP',
+            'total_debit' => 0,
+            'total_credit' => 1000,
+            'status' => 'posted',
+        ]);
+    }
+
+    public function test_cash_voucher_can_save_without_balanced_sides(): void
+    {
+        $admin = \App\Models\User::query()->where('email', 'admin@erp.local')->firstOrFail();
+        $fy = \App\Models\FinancialYear::query()->firstOrFail();
+        $account = \App\Models\Account::query()->postable()->firstOrFail();
+
+        $response = $this->actingAs($admin)->post(route('erp.accounts.vouchers.store', ['voucherType' => 'cv']), [
+            'voucher_date' => now()->toDateString(),
+            'financial_year_id' => $fy->id,
+            'remarks' => 'Unbalanced CV voucher',
+            'lines' => [
+                ['account_id' => $account->id, 'description' => 'Cash voucher line', 'debit' => 1500, 'credit' => 0],
+            ],
+        ]);
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('vouchers', [
+            'module' => 'accounts',
+            'voucher_type' => 'CV',
+            'total_debit' => 1500,
+            'total_credit' => 0,
+            'status' => 'posted',
+        ]);
+    }
+
+    public function test_bank_payment_voucher_saves_instrument_meta(): void
+    {
+        $admin = \App\Models\User::query()->where('email', 'admin@erp.local')->firstOrFail();
+        $fy = \App\Models\FinancialYear::query()->firstOrFail();
+        $account = \App\Models\Account::query()->postable()->firstOrFail();
+
+        $response = $this->actingAs($admin)->post(route('erp.accounts.vouchers.store', ['voucherType' => 'bpv']), [
+            'voucher_date' => now()->toDateString(),
+            'financial_year_id' => $fy->id,
+            'remarks' => 'BPV with instrument',
+            'lines' => [
+                [
+                    'account_id' => $account->id,
+                    'description' => 'Bank payment line',
+                    'debit' => 1000,
+                    'credit' => 0,
+                    'meta' => [
+                        'instrument_no' => 'CHK-1001',
+                        'instrument_date' => '06-07-2026',
+                        'title' => 'OFFICE',
+                    ],
+                ],
+                [
+                    'account_id' => $account->id,
+                    'description' => 'Balancing line',
+                    'debit' => 0,
+                    'credit' => 1000,
+                    'meta' => [
+                        'instrument_no' => 'CHK-1002',
+                        'instrument_date' => '06-07-2026',
+                        'title' => 'OFFICE',
+                    ],
+                ],
+            ],
+        ]);
+
+        $response->assertRedirect();
+
+        $voucher = \App\Models\Voucher::query()
+            ->where('module', 'accounts')
+            ->where('voucher_type', 'BPV')
+            ->latest('id')
+            ->firstOrFail();
+
+        $this->assertSame('CHK-1001', $voucher->lines()->orderBy('id')->firstOrFail()->meta['instrument_no'] ?? null);
+    }
+
+    public function test_bank_payment_voucher_rejects_duplicate_instrument_numbers(): void
+    {
+        $admin = \App\Models\User::query()->where('email', 'admin@erp.local')->firstOrFail();
+        $fy = \App\Models\FinancialYear::query()->firstOrFail();
+        $account = \App\Models\Account::query()->postable()->firstOrFail();
+
+        $response = $this->from(route('erp.accounts.vouchers.bpv'))
+            ->actingAs($admin)
+            ->post(route('erp.accounts.vouchers.store', ['voucherType' => 'bpv']), [
+                'voucher_date' => now()->toDateString(),
+                'financial_year_id' => $fy->id,
+                'remarks' => 'Duplicate instrument BPV',
+                'lines' => [
+                    [
+                        'account_id' => $account->id,
+                        'description' => 'Line 1',
+                        'debit' => 1000,
+                        'credit' => 0,
+                        'meta' => ['instrument_no' => 'CHK-2001'],
+                    ],
+                    [
+                        'account_id' => $account->id,
+                        'description' => 'Line 2',
+                        'debit' => 0,
+                        'credit' => 1000,
+                        'meta' => ['instrument_no' => 'CHK-2001'],
+                    ],
+                ],
+            ]);
+
+        $response->assertRedirect(route('erp.accounts.vouchers.bpv'));
+        $response->assertSessionHasErrors('lines');
+    }
+
     public function test_reports_export_csv_works(): void
     {
         $admin = \App\Models\User::query()->where('email', 'admin@erp.local')->firstOrFail();

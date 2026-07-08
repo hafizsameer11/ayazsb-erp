@@ -9,7 +9,7 @@
             <div class="text-[11px] font-semibold uppercase text-slate-600">Voucher master</div>
             @include('erp.accounts.vouchers.partials.voucher-master-fields', ['showCashSummary' => true])
 
-            <p class="text-[11px] text-slate-600"><abbr title="Cash payment voucher" class="cursor-help font-semibold">CP</abbr> — cash payment: use <strong>Debit</strong> and <strong>Credit</strong> like a journal (e.g. expense debit, cash/bank credit).</p>
+            <p class="text-[11px] text-slate-600"><abbr title="Cash payment voucher" class="cursor-help font-semibold">CP</abbr> — cash payment. Debit and credit may be entered independently; equal balancing is not required on this screen.</p>
 
             <div class="text-[11px] font-semibold uppercase text-slate-600">Voucher details</div>
             @include('erp.accounts.vouchers.partials.voucher-lines-block', [

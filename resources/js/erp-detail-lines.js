@@ -45,6 +45,42 @@ function initAccountSearchOnRow(row) {
     });
 }
 
+function copyRowFieldValue(sourceField, targetField) {
+    if (targetField.dataset.copyReset === '1') {
+        if (targetField.tagName === 'SELECT') {
+            targetField.selectedIndex = 0;
+        } else {
+            targetField.value = '';
+        }
+        return;
+    }
+
+    if (targetField.tagName === 'SELECT') {
+        targetField.value = sourceField.value;
+        return;
+    }
+
+    targetField.value = sourceField.value;
+}
+
+function copyLastRowValues(previousRow, newRow) {
+    if (!previousRow) {
+        return;
+    }
+
+    const previousFields = Array.from(previousRow.querySelectorAll('[name]'));
+    const newFields = Array.from(newRow.querySelectorAll('[name]'));
+
+    previousFields.forEach((sourceField, index) => {
+        const targetField = newFields[index];
+        if (!targetField) {
+            return;
+        }
+
+        copyRowFieldValue(sourceField, targetField);
+    });
+}
+
 function cloneTemplateRow(template) {
     if (template.content) {
         const row = template.content.firstElementChild;
@@ -126,11 +162,13 @@ function addDetailLineRow(container) {
     const tbody = container.querySelector('[data-erp-detail-lines-body]');
     const template = container.querySelector('[data-erp-detail-line-template]');
     const namePrefix = container.dataset.namePrefix || 'lines';
+    const shouldCopyLastRow = container.dataset.copyLastRow === '1';
 
     if (!tbody || !template) {
         return null;
     }
 
+    const previousRow = shouldCopyLastRow ? tbody.querySelector('tr:last-child') : null;
     const row = cloneTemplateRow(template);
     if (!row || row.tagName !== 'TR') {
         return null;
@@ -138,6 +176,9 @@ function addDetailLineRow(container) {
 
     tbody.appendChild(row);
     clearDetailLineRow(row);
+    if (shouldCopyLastRow) {
+        copyLastRowValues(previousRow, row);
+    }
     reindexDetailLineNames(tbody, namePrefix);
     initAccountSearchOnRow(row);
 

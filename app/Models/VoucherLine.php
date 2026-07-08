@@ -19,6 +19,11 @@ class VoucherLine extends Model
         'debit',
         'credit',
         'tag',
+        'meta',
+    ];
+
+    protected $casts = [
+        'meta' => 'array',
     ];
 
     public function voucher(): BelongsTo

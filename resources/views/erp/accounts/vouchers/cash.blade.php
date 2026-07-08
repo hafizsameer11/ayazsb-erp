@@ -9,7 +9,7 @@
             <div class="text-[11px] font-semibold uppercase text-slate-600">Voucher master</div>
             @include('erp.accounts.vouchers.partials.voucher-master-fields', ['showCashSummary' => true])
 
-            <p class="text-[11px] text-slate-600"><abbr title="Cash voucher" class="cursor-help font-semibold">CV</abbr> — combined cash entry: <strong>Debit</strong> and <strong>Credit</strong> columns (same as journal).</p>
+            <p class="text-[11px] text-slate-600"><abbr title="Cash voucher" class="cursor-help font-semibold">CV</abbr> — combined cash entry. Debit and credit may be entered independently; equal balancing is not required on this screen.</p>
 
             <div class="text-[11px] font-semibold uppercase text-slate-600">Voucher details</div>
             @include('erp.accounts.vouchers.partials.voucher-lines-block', [

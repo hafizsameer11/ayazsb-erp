@@ -264,6 +264,10 @@ class AccountsFinanceController extends Controller
             'lines.*.rate' => ['nullable', 'numeric', 'min:0'],
             'lines.*.amount' => ['nullable', 'numeric', 'min:0'],
             'lines.*.tag' => ['nullable', 'string', 'max:80'],
+            'lines.*.meta' => ['nullable', 'array'],
+            'lines.*.meta.instrument_no' => ['nullable', 'string', 'max:80'],
+            'lines.*.meta.instrument_date' => ['nullable', 'string', 'max:20'],
+            'lines.*.meta.title' => ['nullable', 'string', 'max:120'],
         ]);
         $totals = $this->prepareVoucherLines($data['lines'], $voucherType);
 
@@ -332,6 +336,10 @@ class AccountsFinanceController extends Controller
             'lines.*.rate' => ['nullable', 'numeric', 'min:0'],
             'lines.*.amount' => ['nullable', 'numeric', 'min:0'],
             'lines.*.tag' => ['nullable', 'string', 'max:80'],
+            'lines.*.meta' => ['nullable', 'array'],
+            'lines.*.meta.instrument_no' => ['nullable', 'string', 'max:80'],
+            'lines.*.meta.instrument_date' => ['nullable', 'string', 'max:20'],
+            'lines.*.meta.title' => ['nullable', 'string', 'max:120'],
         ]);
 
         $totals = $this->prepareVoucherLines($data['lines'], $slug);
@@ -400,8 +408,12 @@ class AccountsFinanceController extends Controller
 
         $calculatedDebit = (float) $voucher->lines->sum('debit');
         $calculatedCredit = (float) $voucher->lines->sum('credit');
-        if ($calculatedDebit <= 0 || $calculatedCredit <= 0) {
+        if ($this->voucherRequiresBalancedSides($map) && ($calculatedDebit <= 0 || $calculatedCredit <= 0)) {
             return back()->with('error', 'Voucher totals must be greater than zero before posting.');
+        }
+
+        if (! $this->voucherRequiresBalancedSides($map) && max($calculatedDebit, $calculatedCredit) <= 0) {
+            return back()->with('error', 'Voucher total must be greater than zero before posting.');
         }
 
         if (
@@ -411,7 +423,7 @@ class AccountsFinanceController extends Controller
             return back()->with('error', 'Voucher header totals do not match detail lines.');
         }
 
-        if ((float) $voucher->total_debit !== (float) $voucher->total_credit) {
+        if ($this->voucherRequiresBalancedSides($map) && (float) $voucher->total_debit !== (float) $voucher->total_credit) {
             return back()->with('error', 'Debit and credit must be balanced before posting.');
         }
 
@@ -550,6 +562,7 @@ class AccountsFinanceController extends Controller
         $credit = 0.0;
         $amount = 0.0;
         $preparedLines = [];
+        $instrumentNumbers = [];
 
         foreach ($lines as $line) {
             if (
@@ -557,7 +570,10 @@ class AccountsFinanceController extends Controller
                 empty($line['description']) &&
                 empty($line['debit']) &&
                 empty($line['credit']) &&
-                empty($line['amount'])
+                empty($line['amount']) &&
+                empty($line['meta']['instrument_no'] ?? null) &&
+                empty($line['meta']['instrument_date'] ?? null) &&
+                empty($line['meta']['title'] ?? null)
             ) {
                 continue;
             }
@@ -585,6 +601,17 @@ class AccountsFinanceController extends Controller
                 continue;
             }
 
+            $instrumentNo = trim((string) ($line['meta']['instrument_no'] ?? ''));
+            if ($instrumentNo !== '') {
+                $normalizedInstrumentNo = strtolower($instrumentNo);
+                if (in_array($normalizedInstrumentNo, $instrumentNumbers, true)) {
+                    throw ValidationException::withMessages([
+                        'lines' => 'Instrument # must be unique on each voucher line.',
+                    ]);
+                }
+                $instrumentNumbers[] = $normalizedInstrumentNo;
+            }
+
             $debit += $lineDebit;
             $credit += $lineCredit;
             $amount += $lineAmount > 0 ? $lineAmount : max($lineDebit, $lineCredit);
@@ -597,6 +624,11 @@ class AccountsFinanceController extends Controller
                 'rate' => (float) ($line['rate'] ?? 0),
                 'amount' => $lineAmount > 0 ? $lineAmount : max($lineDebit, $lineCredit),
                 'tag' => $line['tag'] ?? null,
+                'meta' => [
+                    'instrument_no' => $instrumentNo !== '' ? $instrumentNo : null,
+                    'instrument_date' => blank($line['meta']['instrument_date'] ?? null) ? null : (string) $line['meta']['instrument_date'],
+                    'title' => blank($line['meta']['title'] ?? null) ? null : trim((string) $line['meta']['title']),
+                ],
             ];
         }
 
@@ -605,12 +637,17 @@ class AccountsFinanceController extends Controller
                 'lines' => 'At least one valid voucher line is required.',
             ]);
         }
-        if ($debit <= 0 || $credit <= 0) {
+        if ($this->voucherRequiresBalancedSides($voucherType) && ($debit <= 0 || $credit <= 0)) {
             throw ValidationException::withMessages([
                 'lines' => 'Voucher requires both debit and credit values.',
             ]);
         }
-        if (abs($debit - $credit) > 0.009) {
+        if (! $this->voucherRequiresBalancedSides($voucherType) && max($debit, $credit) <= 0) {
+            throw ValidationException::withMessages([
+                'lines' => 'Voucher requires at least one amount value.',
+            ]);
+        }
+        if ($this->voucherRequiresBalancedSides($voucherType) && abs($debit - $credit) > 0.009) {
             throw ValidationException::withMessages([
                 'lines' => 'Debit and credit must be equal before posting.',
             ]);
@@ -630,6 +667,11 @@ class AccountsFinanceController extends Controller
     private function historyQuery(Request $request): array
     {
         return RecordHistory::historyQuery($request);
+    }
+
+    private function voucherRequiresBalancedSides(string $voucherType): bool
+    {
+        return ! in_array(strtolower($voucherType), ['cp', 'cv'], true);
     }
 
     private function voucherSaveResponse(

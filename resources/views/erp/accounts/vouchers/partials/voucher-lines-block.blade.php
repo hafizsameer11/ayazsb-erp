@@ -5,7 +5,12 @@
         ? max($initialRows, $editingLines->count())
         : $initialRows;
 @endphp
-<div data-erp-detail-lines data-name-prefix="lines" class="space-y-1">
+<div
+    data-erp-detail-lines
+    data-name-prefix="lines"
+    @if (! empty($copyLastRowOnAdd ?? false)) data-copy-last-row="1" @endif
+    class="space-y-1"
+>
     <div class="overflow-x-auto border border-slate-400">
         <table class="{{ $tableClass ?? 'w-full min-w-[560px] border-collapse text-left text-[12px]' }}">
             <thead>

@@ -1,5 +1,5 @@
 /**
- * ERP form behaviour: dates as DD-MM-YYYY, no submit on Enter (Save only), auto uppercase text.
+ * ERP form behaviour: dates as DD-MM-YYYY, Enter moves forward, auto uppercase text.
  */
 
 function shouldAutoUppercase(el) {
@@ -148,6 +148,65 @@ function isValidErpDate(value) {
     );
 }
 
+function isFocusableFormField(el) {
+    if (!(el instanceof HTMLElement)) {
+        return false;
+    }
+
+    if (el.matches('[disabled], [type="hidden"]')) {
+        return false;
+    }
+
+    if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
+        if (el.readOnly) {
+            return false;
+        }
+    }
+
+    if (el.getAttribute('tabindex') === '-1') {
+        return false;
+    }
+
+    return el.offsetParent !== null;
+}
+
+function getFormFocusableFields(form) {
+    return Array.from(
+        form.querySelectorAll(
+            'input, select, textarea, button[type="button"], button:not([type])',
+        ),
+    ).filter(isFocusableFormField);
+}
+
+function focusNextField(target, form) {
+    const fields = getFormFocusableFields(form);
+    const currentIndex = fields.indexOf(target);
+
+    if (currentIndex === -1) {
+        return false;
+    }
+
+    const nextField = fields[currentIndex + 1];
+    if (!nextField) {
+        return false;
+    }
+
+    if (nextField instanceof HTMLSelectElement && nextField.tomselect) {
+        nextField.tomselect.focus();
+        return true;
+    }
+
+    if (nextField instanceof HTMLElement) {
+        nextField.focus();
+        if (nextField instanceof HTMLInputElement || nextField instanceof HTMLTextAreaElement) {
+            nextField.select?.();
+        }
+        return true;
+    }
+
+    return false;
+}
+
 export function initErpForms() {
     initAutoUppercase();
 
@@ -202,6 +261,14 @@ export function initErpForms() {
             }
 
             event.preventDefault();
+
+            if (
+                target instanceof HTMLInputElement ||
+                target instanceof HTMLSelectElement ||
+                target instanceof HTMLTextAreaElement
+            ) {
+                focusNextField(target, form);
+            }
         },
         true,
     );

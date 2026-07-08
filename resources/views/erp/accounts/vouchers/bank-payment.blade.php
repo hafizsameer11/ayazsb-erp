@@ -17,6 +17,7 @@
                 'theadPartial' => 'erp.accounts.vouchers.partials.voucher-thead-bank-payment',
                 'voucherCode' => $voucherCode,
                 'tableClass' => 'w-full min-w-[960px] border-collapse text-left text-[12px]',
+                'copyLastRowOnAdd' => true,
             ])
             <div class="flex flex-wrap items-end gap-3 border border-slate-300 bg-[#f0f0f0] p-2">
                 <input class="erp-input w-16 font-mono" type="text" value="0" readonly>
