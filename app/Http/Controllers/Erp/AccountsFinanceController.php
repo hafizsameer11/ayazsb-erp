@@ -671,7 +671,7 @@ class AccountsFinanceController extends Controller
 
     private function voucherRequiresBalancedSides(string $voucherType): bool
     {
-        return ! in_array(strtolower($voucherType), ['cp', 'cv'], true);
+        return ! in_array(strtolower($voucherType), ['cp', 'cv', 'bpv'], true);
     }
 
     private function voucherSaveResponse(

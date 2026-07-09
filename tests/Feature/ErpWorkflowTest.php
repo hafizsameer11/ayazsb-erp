@@ -300,6 +300,39 @@ class ErpWorkflowTest extends TestCase
         $this->assertSame('CHK-1001', $voucher->lines()->orderBy('id')->firstOrFail()->meta['instrument_no'] ?? null);
     }
 
+    public function test_bank_payment_voucher_can_save_without_balanced_sides(): void
+    {
+        $admin = \App\Models\User::query()->where('email', 'admin@erp.local')->firstOrFail();
+        $fy = \App\Models\FinancialYear::query()->firstOrFail();
+        $account = \App\Models\Account::query()->postable()->firstOrFail();
+
+        $response = $this->actingAs($admin)->post(route('erp.accounts.vouchers.store', ['voucherType' => 'bpv']), [
+            'voucher_date' => now()->toDateString(),
+            'financial_year_id' => $fy->id,
+            'remarks' => 'Unbalanced BPV voucher',
+            'lines' => [
+                [
+                    'account_id' => $account->id,
+                    'description' => 'Bank payment line',
+                    'debit' => 0,
+                    'credit' => 2000,
+                    'meta' => [
+                        'instrument_no' => 'CHK-1101',
+                    ],
+                ],
+            ],
+        ]);
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('vouchers', [
+            'module' => 'accounts',
+            'voucher_type' => 'BPV',
+            'total_debit' => 0,
+            'total_credit' => 2000,
+            'status' => 'posted',
+        ]);
+    }
+
     public function test_bank_payment_voucher_rejects_duplicate_instrument_numbers(): void
     {
         $admin = \App\Models\User::query()->where('email', 'admin@erp.local')->firstOrFail();

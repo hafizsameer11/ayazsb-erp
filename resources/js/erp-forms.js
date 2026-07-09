@@ -148,6 +148,23 @@ function isValidErpDate(value) {
     );
 }
 
+function bindDateInput(input) {
+    if (input.dataset.erpDateBound === '1') {
+        return;
+    }
+
+    input.dataset.erpDateBound = '1';
+    input.addEventListener('input', () => normalizeDateInput(input));
+    input.addEventListener('blur', () => {
+        normalizeDateInput(input);
+        if (input.value && !isValidErpDate(input.value)) {
+            input.setCustomValidity('Use DD-MM-YYYY');
+        } else {
+            input.setCustomValidity('');
+        }
+    });
+}
+
 function isFocusableFormField(el) {
     if (!(el instanceof HTMLElement)) {
         return false;
@@ -211,15 +228,7 @@ export function initErpForms() {
     initAutoUppercase();
 
     document.querySelectorAll('input.erp-date-input[type="text"]').forEach((input) => {
-        input.addEventListener('input', () => normalizeDateInput(input));
-        input.addEventListener('blur', () => {
-            normalizeDateInput(input);
-            if (input.value && !isValidErpDate(input.value)) {
-                input.setCustomValidity('Use DD-MM-YYYY');
-            } else {
-                input.setCustomValidity('');
-            }
-        });
+        bindDateInput(input);
     });
 
     document.querySelectorAll('input.erp-date-picker[type="date"]').forEach((input) => {
@@ -272,4 +281,29 @@ export function initErpForms() {
         },
         true,
     );
+
+    const root = document.querySelector('.erp-body');
+    if (!root) {
+        return;
+    }
+
+    const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+            mutation.addedNodes.forEach((node) => {
+                if (!(node instanceof HTMLElement)) {
+                    return;
+                }
+
+                if (node.matches?.('input.erp-date-input[type="text"]')) {
+                    bindDateInput(node);
+                }
+
+                node.querySelectorAll?.('input.erp-date-input[type="text"]').forEach((input) => {
+                    bindDateInput(input);
+                });
+            });
+        });
+    });
+
+    observer.observe(root, { childList: true, subtree: true });
 }
