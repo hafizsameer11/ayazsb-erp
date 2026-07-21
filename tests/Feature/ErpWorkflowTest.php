@@ -333,6 +333,74 @@ class ErpWorkflowTest extends TestCase
         ]);
     }
 
+    public function test_cash_receipt_and_bank_receipt_can_save_without_balanced_sides(): void
+    {
+        $admin = \App\Models\User::query()->where('email', 'admin@erp.local')->firstOrFail();
+        $fy = \App\Models\FinancialYear::query()->firstOrFail();
+        $account = \App\Models\Account::query()->postable()->firstOrFail();
+
+        $this->actingAs($admin)->post(route('erp.accounts.vouchers.store', ['voucherType' => 'cr']), [
+            'voucher_date' => now()->toDateString(),
+            'financial_year_id' => $fy->id,
+            'remarks' => 'Unbalanced CR voucher',
+            'lines' => [
+                ['account_id' => $account->id, 'description' => 'Cash receipt line', 'debit' => 900, 'credit' => 0],
+            ],
+        ])->assertRedirect();
+
+        $this->assertDatabaseHas('vouchers', [
+            'module' => 'accounts',
+            'voucher_type' => 'CR',
+            'total_debit' => 900,
+            'total_credit' => 0,
+            'status' => 'posted',
+        ]);
+
+        $this->actingAs($admin)->post(route('erp.accounts.vouchers.store', ['voucherType' => 'brv']), [
+            'voucher_date' => now()->toDateString(),
+            'financial_year_id' => $fy->id,
+            'remarks' => 'Unbalanced BRV voucher',
+            'lines' => [
+                [
+                    'account_id' => $account->id,
+                    'description' => 'Bank receipt line',
+                    'debit' => 1100,
+                    'credit' => 0,
+                    'meta' => ['instrument_no' => 'CHK-1201'],
+                ],
+            ],
+        ])->assertRedirect();
+
+        $this->assertDatabaseHas('vouchers', [
+            'module' => 'accounts',
+            'voucher_type' => 'BRV',
+            'total_debit' => 1100,
+            'total_credit' => 0,
+            'status' => 'posted',
+        ]);
+    }
+
+    public function test_journal_voucher_still_requires_balanced_sides(): void
+    {
+        $admin = \App\Models\User::query()->where('email', 'admin@erp.local')->firstOrFail();
+        $fy = \App\Models\FinancialYear::query()->firstOrFail();
+        $account = \App\Models\Account::query()->postable()->firstOrFail();
+
+        $response = $this->from(route('erp.accounts.vouchers.jv'))
+            ->actingAs($admin)
+            ->post(route('erp.accounts.vouchers.store', ['voucherType' => 'jv']), [
+                'voucher_date' => now()->toDateString(),
+                'financial_year_id' => $fy->id,
+                'remarks' => 'Unbalanced JV must fail',
+                'lines' => [
+                    ['account_id' => $account->id, 'description' => 'Dr only', 'debit' => 1000, 'credit' => 0],
+                ],
+            ]);
+
+        $response->assertRedirect(route('erp.accounts.vouchers.jv'));
+        $response->assertSessionHasErrors('lines');
+    }
+
     public function test_bank_payment_voucher_rejects_duplicate_instrument_numbers(): void
     {
         $admin = \App\Models\User::query()->where('email', 'admin@erp.local')->firstOrFail();

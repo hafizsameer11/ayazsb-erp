@@ -13,7 +13,7 @@
                 </div>
             </div>
 
-            <p class="text-[11px] text-slate-600"><abbr title="Cash receipt voucher" class="cursor-help font-semibold">CR</abbr> — cash receipt: <strong>Debit</strong> (e.g. cash) and <strong>Credit</strong> (e.g. income / debtor).</p>
+            <p class="text-[11px] text-slate-600"><abbr title="Cash receipt voucher" class="cursor-help font-semibold">CR</abbr> — cash receipt. Debit and credit may be entered independently; equal balancing is not required on this screen.</p>
 
             <div class="text-[11px] font-semibold uppercase text-slate-600">Voucher details</div>
             @include('erp.accounts.vouchers.partials.voucher-lines-block', [
