@@ -78,12 +78,20 @@ export function initYarnContractCalculations() {
             el.addEventListener('change', trigger);
         });
 
-        const itemSelect = form.querySelector('[name="item_id"]');
+        const itemHidden = form.querySelector('input[type="hidden"][name="item_id"]');
+        const itemDisplay = form.querySelector('[data-yarn-item-display]');
         const packingInput = form.querySelector('[name="packing_size"]');
         const items = window.erpYarnItems ?? [];
 
-        itemSelect?.addEventListener('change', () => {
-            const item = items.find((row) => String(row.id) === String(itemSelect.value));
+        const applyItemSelection = (itemId) => {
+            if (itemHidden && itemId !== undefined && itemId !== null && itemId !== '') {
+                itemHidden.value = String(itemId);
+            }
+            if (itemDisplay && itemId !== undefined && itemId !== null && itemId !== '') {
+                itemDisplay.value = String(itemId);
+            }
+
+            const item = items.find((row) => String(row.id) === String(itemId));
             if (item && packingInput) {
                 packingInput.value = item.pack_size_cones ?? '';
                 if (item.packing_weight && form.querySelector('[name="packing_weight"]')) {
@@ -95,7 +103,9 @@ export function initYarnContractCalculations() {
                 desc.value = item ? `${item.code} — ${item.name}` : '';
             }
             trigger();
-        });
+        };
+
+        itemDisplay?.addEventListener('change', () => applyItemSelection(itemDisplay.value));
 
         const accountSelect = form.querySelector('[name="account_id"]');
         const contractSelect = form.querySelector('[name="yarn_contract_id"]');
@@ -123,7 +133,7 @@ export function initYarnContractCalculations() {
             }
 
             set('item_id', contract.item_id);
-            itemSelect?.dispatchEvent(new Event('change', { bubbles: true }));
+            applyItemSelection(contract.item_id);
             set('packing_size', contract.packing_size);
             set('packing_weight', contract.packing_weight);
             set('quantity', contract.quantity);
@@ -147,6 +157,9 @@ export function initYarnContractCalculations() {
         };
 
         contractSelect?.addEventListener('change', applyContract);
+        if (contractSelect?.value) {
+            applyContract();
+        }
 
         const filterContractsByParty = () => {
             if (!contractSelect || !accountSelect) {
@@ -166,6 +179,11 @@ export function initYarnContractCalculations() {
         filterContractsByParty();
 
         form.addEventListener('submit', () => {
+            const contract = contracts.find((row) => String(row.id) === String(contractSelect?.value ?? ''));
+            if (contract?.item_id) {
+                applyItemSelection(contract.item_id);
+            }
+
             trigger();
             const totals = calculateYarnTotals(readFormInput(form));
             const input = readFormInput(form);
@@ -179,8 +197,8 @@ export function initYarnContractCalculations() {
             sync('lines[0][weight_lbs]', totals.weight_lbs);
             sync('lines[0][rate]', form.querySelector('[name="rate"]')?.value ?? '');
             sync('lines[0][amount]', totals.total_net_amount.toFixed(2));
-            sync('lines[0][item_id]', form.querySelector('[name="item_id"]')?.value ?? '');
-        });
+            sync('lines[0][item_id]', itemHidden?.value ?? '');
+        }, { capture: true });
 
         trigger();
     });

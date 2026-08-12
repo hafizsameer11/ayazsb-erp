@@ -20,11 +20,28 @@ class PostingService
 
     public function postInventoryTransaction(InventoryTransaction $transaction): InventoryTransaction
     {
-        $transaction->update([
-            'status' => 'posted',
-        ]);
+        if ($transaction->status !== 'posted') {
+            $transaction->update([
+                'status' => 'posted',
+            ]);
+        }
+
+        $transaction = $transaction->fresh(['lines.item', 'account']);
+        $this->syncInventorySideEffects($transaction);
 
         return $transaction->fresh();
     }
-}
 
+    private function syncInventorySideEffects(InventoryTransaction $transaction): void
+    {
+        if ($transaction->module !== 'yarn') {
+            return;
+        }
+
+        if (config('yarn_vouchers.screens.' . $transaction->screen_slug) === null) {
+            return;
+        }
+
+        app(YarnVoucherBridgeService::class)->syncForTransaction($transaction);
+    }
+}

@@ -79,6 +79,8 @@ class AccountsLedgerService
             'debit' => $opening > 0 ? $opening : 0.0,
             'credit' => $opening < 0 ? abs($opening) : 0.0,
             'contract_no' => '',
+            'instrument_no' => '',
+            'instrument_date' => '',
         ], $running, true);
 
         foreach ($entries as $entry) {
@@ -324,6 +326,7 @@ class AccountsLedgerService
                 'voucher_lines.debit',
                 'voucher_lines.credit',
                 'voucher_lines.tag',
+                'voucher_lines.meta',
                 'accounts.code as account_code',
                 'accounts.name as account_name',
                 'vouchers.voucher_date',
@@ -357,6 +360,9 @@ class AccountsLedgerService
         foreach ($voucherLines as $line) {
             $detail = trim((string) ($line->description ?: $line->remarks));
             $contract = trim((string) ($line->tag ?? ''));
+            $meta = is_array($line->meta) ? $line->meta : (json_decode((string) $line->meta, true) ?: []);
+            $instrumentNo = trim((string) ($meta['instrument_no'] ?? ''));
+            $instrumentDate = ErpDate::display(trim((string) ($meta['instrument_date'] ?? '')));
             if ($contract !== '') {
                 $detail = $detail === '' ? 'CNT # ' . $contract : $detail . ' CNT # ' . $contract;
             }
@@ -367,6 +373,8 @@ class AccountsLedgerService
                 'date' => $line->voucher_date,
                 'type' => strtoupper((string) $line->voucher_type),
                 'voucher_no' => (string) $line->voucher_number,
+                'instrument_no' => $instrumentNo,
+                'instrument_date' => $instrumentDate,
                 'narration' => $detail !== '' ? $detail : '.',
                 'debit' => (float) $line->debit,
                 'credit' => (float) $line->credit,
@@ -384,6 +392,8 @@ class AccountsLedgerService
                 'date' => $opening->voucher_date,
                 'type' => 'OBV',
                 'voucher_no' => (string) $opening->id,
+                'instrument_no' => '',
+                'instrument_date' => '',
                 'narration' => $detail !== '' ? $detail : 'OPENING BALANCE',
                 'debit' => (float) $opening->debit,
                 'credit' => (float) $opening->credit,
@@ -420,6 +430,8 @@ class AccountsLedgerService
             'date' => ErpDate::display($entry['date']),
             'type' => $entry['type'] ?? '',
             'voucher_no' => $entry['voucher_no'] ?? '',
+            'instrument_no' => $entry['instrument_no'] ?? '',
+            'instrument_date' => $entry['instrument_date'] ?? '',
             'narration' => $entry['narration'] ?? '',
             'debit' => $debit > 0 ? $debit : null,
             'credit' => $credit > 0 ? $credit : null,

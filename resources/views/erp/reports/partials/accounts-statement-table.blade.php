@@ -15,12 +15,14 @@
             <div class="text-slate-500">Print: {{ now()->format('d-m-Y h:i:s A') }}</div>
         </div>
     </div>
-    <table class="w-full min-w-[920px] border-collapse text-[12px]">
+    <table class="w-full min-w-[980px] border-collapse text-[12px]">
         <thead>
             <tr class="bg-[#d8d8d8]">
+                <th class="border border-slate-400 px-1 py-1 text-left">Instrument #</th>
                 <th class="border border-slate-400 px-1 py-1">Date</th>
                 <th class="border border-slate-400 px-1 py-1">Type</th>
                 <th class="border border-slate-400 px-1 py-1">V.#</th>
+                <th class="border border-slate-400 px-1 py-1">Inst. Date</th>
                 <th class="border border-slate-400 px-1 py-1">Narration</th>
                 <th class="border border-slate-400 px-1 py-1 text-right">Debit</th>
                 <th class="border border-slate-400 px-1 py-1 text-right">Credit</th>
@@ -32,9 +34,11 @@
         <tbody>
             @foreach ($statement['rows'] as $row)
                 <tr>
+                    <td class="border border-slate-300 px-1 py-1 text-left font-mono">{{ $row['instrument_no'] ?? '' }}</td>
                     <td class="border border-slate-300 px-1 py-1">{{ $row['date'] }}</td>
                     <td class="border border-slate-300 px-1 py-1">{{ $row['type'] }}</td>
                     <td class="border border-slate-300 px-1 py-1 font-mono">{{ $row['voucher_no'] }}</td>
+                    <td class="border border-slate-300 px-1 py-1">{{ $row['instrument_date'] ?? '' }}</td>
                     <td class="border border-slate-300 px-1 py-1">{{ $row['narration'] }}</td>
                     <td class="border border-slate-300 px-1 py-1 text-right font-mono">{{ $row['debit'] !== null ? number_format((float) $row['debit'], 2) : '' }}</td>
                     <td class="border border-slate-300 px-1 py-1 text-right font-mono">{{ $row['credit'] !== null ? number_format((float) $row['credit'], 2) : '' }}</td>
@@ -46,7 +50,7 @@
         </tbody>
         <tfoot>
             <tr class="bg-[#f2f2f2] font-semibold">
-                <td colspan="4" class="border border-slate-300 px-1 py-1">Total ({{ $statement['totals']['count'] }} transaction(s))</td>
+                <td colspan="6" class="border border-slate-300 px-1 py-1">Total ({{ $statement['totals']['count'] }} transaction(s))</td>
                 <td class="border border-slate-300 px-1 py-1 text-right font-mono">{{ number_format($statement['totals']['debit'], 2) }}</td>
                 <td class="border border-slate-300 px-1 py-1 text-right font-mono">{{ number_format($statement['totals']['credit'], 2) }}</td>
                 <td class="border border-slate-300 px-1 py-1 text-right font-mono">{{ number_format($statement['closing_balance'], 2) }}</td>

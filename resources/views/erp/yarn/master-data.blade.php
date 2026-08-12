@@ -43,7 +43,7 @@
         </div>
 
         <nav class="flex gap-1 border-b border-slate-300 px-2 pt-2 text-[11px]" aria-label="Yarn master tabs">
-            @foreach (['master' => 'YARN MASTER', 'items' => 'YARN ITEMS', 'godowns' => 'GODOWNS'] as $key => $label)
+            @foreach (['master' => 'YARN MASTER', 'items' => 'YARN ITEMS', 'godowns' => 'GODOWNS', 'account-settings' => 'ACCOUNT MAPPING'] as $key => $label)
                 <a
                     href="{{ route('erp.yarn.master-data', ['tab' => $key]) }}"
                     class="-mb-px border border-b-0 border-slate-400 px-3 py-1.5 font-semibold {{ $activeTab === $key ? 'bg-white text-slate-900' : 'bg-[#d8d8d8] text-slate-600 hover:bg-[#ececec]' }}"
@@ -211,6 +211,27 @@
                         </tbody>
                     </table>
                 </fieldset>
+            </div>
+
+            <div class="yarn-master-tab {{ $activeTab === 'account-settings' ? '' : 'hidden' }}" data-tab-panel="account-settings">
+                @php $settings = $accountSettings ?? \App\Models\YarnAccountSetting::current(); @endphp
+                <p class="mb-3 text-[11px] text-slate-600">Map yarn stock and sales accounts to sub-ledgers from the Chart of Accounts. Party accounts are selected on each yarn purchase/sale screen.</p>
+                <div class="grid gap-3 md:grid-cols-2 max-w-3xl">
+                    @foreach ([
+                        'yarn_stock_account_id' => 'Yarn Stock Account',
+                        'yarn_sales_account_id' => 'Yarn Sales Account',
+                    ] as $field => $label)
+                        <label class="erp-field">
+                            <span class="erp-label">{{ $label }}</span>
+                            @include('erp.grey.partials.code-name-pair', [
+                                'selectName' => $field,
+                                'selectedId' => old($field, $settings->{$field}),
+                                'options' => $accountParties ?? collect(),
+                                'targetId' => 'yarn-gl-' . $field,
+                            ])
+                        </label>
+                    @endforeach
+                </div>
             </div>
 
             <div class="mt-3 flex gap-2 border border-slate-300 bg-[#f0f0f0] p-2">

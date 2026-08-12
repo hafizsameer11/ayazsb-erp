@@ -19,7 +19,6 @@ class YarnStockAvailabilityService
             'opening',
             'receipt-processed',
             'receipt-processed-auto',
-            'gain-shortage',
         ];
         $outScreens = ['issuance', 'sale-contract-wise', 'sale-without-contract', 'godown-transfer'];
 
@@ -29,22 +28,49 @@ class YarnStockAvailabilityService
         foreach ($items as $item) {
             $inLbs = (float) InventoryTransactionLine::query()
                 ->where('item_id', $item->id)
-                ->whereHas('transaction', fn ($q) => $q->where('module', 'yarn')->whereIn('screen_slug', $inScreens))
+                ->whereHas('transaction', fn ($q) => $q
+                    ->where('module', 'yarn')
+                    ->where('status', 'posted')
+                    ->whereIn('screen_slug', $inScreens))
                 ->sum('weight_lbs');
+
+            $gainQuery = InventoryTransactionLine::query()
+                ->where('item_id', $item->id)
+                ->whereHas('transaction', fn ($q) => $q
+                    ->where('module', 'yarn')
+                    ->where('status', 'posted')
+                    ->where('screen_slug', 'gain-shortage'));
+            $this->applyGainShortageFilter($gainQuery, 'gain');
+            $inLbs += (float) $gainQuery->sum('weight_lbs');
 
             $outLbs = (float) InventoryTransactionLine::query()
                 ->where('item_id', $item->id)
-                ->whereHas('transaction', fn ($q) => $q->where('module', 'yarn')->whereIn('screen_slug', $outScreens))
+                ->whereHas('transaction', fn ($q) => $q
+                    ->where('module', 'yarn')
+                    ->where('status', 'posted')
+                    ->whereIn('screen_slug', $outScreens))
                 ->sum('weight_lbs');
+
+            $shortageQuery = InventoryTransactionLine::query()
+                ->where('item_id', $item->id)
+                ->whereHas('transaction', fn ($q) => $q
+                    ->where('module', 'yarn')
+                    ->where('status', 'posted')
+                    ->where('screen_slug', 'gain-shortage'));
+            $this->applyGainShortageFilter($shortageQuery, 'shortage');
+            $outLbs += (float) $shortageQuery->sum('weight_lbs');
 
             $availableLbs = max(0, $inLbs - $outLbs);
             $packingSize = (float) ($item->pack_size_cones ?: 0);
-            $availableBags = $packingSize > 0 ? $availableLbs / 100 : $availableLbs / 100;
+            $availableBags = $availableLbs / 100;
             $availableCones = $packingSize > 0 ? $availableLbs / (100 / $packingSize) : 0;
 
             $lastPurchaseRate = (float) InventoryTransactionLine::query()
                 ->where('item_id', $item->id)
-                ->whereHas('transaction', fn ($q) => $q->where('module', 'yarn')->whereIn('screen_slug', ['purchase-contract-wise', 'purchase-without-contract']))
+                ->whereHas('transaction', fn ($q) => $q
+                    ->where('module', 'yarn')
+                    ->where('status', 'posted')
+                    ->whereIn('screen_slug', ['purchase-contract-wise', 'purchase-without-contract']))
                 ->orderByDesc('id')
                 ->value('rate');
 
@@ -123,5 +149,54 @@ class YarnStockAvailabilityService
             ->pluck('account_id')
             ->map(fn ($id) => (int) $id)
             ->all();
+    }
+
+    private function applyGainShortageFilter($query, string $type): void
+    {
+        $driver = $query->getConnection()->getDriverName();
+
+        if ($type === 'gain') {
+            if ($driver === 'mysql') {
+                $query->where(function ($builder): void {
+                    $builder
+                        ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(meta, '$.adjustment_type')) = 'gain'")
+                        ->orWhereRaw("JSON_EXTRACT(meta, '$.adjustment_type') IS NULL");
+                });
+
+                return;
+            }
+
+            if ($driver === 'sqlite') {
+                $query->where(function ($builder): void {
+                    $builder
+                        ->whereRaw("json_extract(meta, '$.adjustment_type') = 'gain'")
+                        ->orWhereRaw("json_extract(meta, '$.adjustment_type') IS NULL");
+                });
+
+                return;
+            }
+
+            $query->where(function ($builder): void {
+                $builder
+                    ->where('meta->adjustment_type', 'gain')
+                    ->orWhereNull('meta->adjustment_type');
+            });
+
+            return;
+        }
+
+        if ($driver === 'mysql') {
+            $query->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(meta, '$.adjustment_type')) = 'shortage'");
+
+            return;
+        }
+
+        if ($driver === 'sqlite') {
+            $query->whereRaw("json_extract(meta, '$.adjustment_type') = 'shortage'");
+
+            return;
+        }
+
+        $query->where('meta->adjustment_type', 'shortage');
     }
 }

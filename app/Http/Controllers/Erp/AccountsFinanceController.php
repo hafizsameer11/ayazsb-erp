@@ -342,7 +342,7 @@ class AccountsFinanceController extends Controller
             'lines.*.meta.title' => ['nullable', 'string', 'max:120'],
         ]);
 
-        $totals = $this->prepareVoucherLines($data['lines'], $slug);
+        $totals = $this->prepareVoucherLines($data['lines'], $slug, $voucher->id);
 
         DB::transaction(function () use ($voucher, $data, $totals): void {
             $voucher->update([
@@ -556,7 +556,7 @@ class AccountsFinanceController extends Controller
     /**
      * @return array{lines: list<array<string, mixed>>, debit: float, credit: float, amount: float}
      */
-    private function prepareVoucherLines(array $lines, string $voucherType): array
+    private function prepareVoucherLines(array $lines, string $voucherType, ?int $excludeVoucherId = null): array
     {
         $debit = 0.0;
         $credit = 0.0;
@@ -607,6 +607,11 @@ class AccountsFinanceController extends Controller
                 if (in_array($normalizedInstrumentNo, $instrumentNumbers, true)) {
                     throw ValidationException::withMessages([
                         'lines' => 'Instrument # must be unique on each voucher line.',
+                    ]);
+                }
+                if ($this->instrumentNumberAlreadyUsed($instrumentNo, $excludeVoucherId)) {
+                    throw ValidationException::withMessages([
+                        'lines' => 'Instrument # has already been used on another voucher.',
                     ]);
                 }
                 $instrumentNumbers[] = $normalizedInstrumentNo;
@@ -672,6 +677,37 @@ class AccountsFinanceController extends Controller
     private function voucherRequiresBalancedSides(string $voucherType): bool
     {
         return strtolower($voucherType) === 'jv';
+    }
+
+    private function instrumentNumberAlreadyUsed(string $instrumentNo, ?int $excludeVoucherId = null): bool
+    {
+        $normalizedInstrumentNo = strtolower(trim($instrumentNo));
+        if ($normalizedInstrumentNo === '') {
+            return false;
+        }
+
+        $query = VoucherLine::query()
+            ->when($excludeVoucherId !== null, fn ($builder) => $builder->where('voucher_id', '!=', $excludeVoucherId))
+            ->whereHas('voucher', fn ($builder) => $builder->where('module', 'accounts'));
+
+        $driver = DB::connection()->getDriverName();
+
+        if ($driver === 'mysql') {
+            return $query
+                ->whereRaw('LOWER(JSON_UNQUOTE(JSON_EXTRACT(meta, "$.instrument_no"))) = ?', [$normalizedInstrumentNo])
+                ->exists();
+        }
+
+        if ($driver === 'sqlite') {
+            return $query
+                ->whereRaw('LOWER(json_extract(meta, "$.instrument_no")) = ?', [$normalizedInstrumentNo])
+                ->exists();
+        }
+
+        return $query
+            ->whereNotNull('meta')
+            ->get(['meta'])
+            ->contains(fn (VoucherLine $line) => strtolower(trim((string) ($line->meta['instrument_no'] ?? ''))) === $normalizedInstrumentNo);
     }
 
     private function voucherSaveResponse(

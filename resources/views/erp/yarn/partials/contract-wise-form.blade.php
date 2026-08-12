@@ -149,7 +149,7 @@
             </label>
             <label class="erp-field">
                 <span class="erp-label">Yarn ID</span>
-                <select class="erp-input border border-slate-400 bg-[#f0f0f0]" name="item_id" readonly disabled>
+                <select class="erp-input border border-slate-400 bg-[#f0f0f0]" data-yarn-item-display disabled>
                     <option value="">—</option>
                     @foreach(($items ?? []) as $item)
                         <option value="{{ $item->id }}" @selected((string) old('item_id', $meta['item_id'] ?? $selectedContract?->item_id) === (string) $item->id)>{{ $item->code }}</option>

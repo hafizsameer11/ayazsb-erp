@@ -50,6 +50,13 @@ class ErpWorkflowTest extends TestCase
 
         $customerAccount = $this->createAccountChain($assetHead, '01001', 'Test customer control', '010010001', 'Test customers', '01001000100001', 'Test customer account');
         $supplierAccount = $this->createAccountChain($liabilityHead, '02001', 'Test supplier control', '020010001', 'Test suppliers', '02001000100001', 'Test supplier account');
+        $yarnStockAccount = $this->createAccountChain($assetHead, '01002', 'Yarn stock control', '010020001', 'Yarn stock ledger', '01002000100001', 'Yarn stock account');
+        $yarnSalesAccount = $this->createAccountChain($assetHead, '01003', 'Yarn sales control', '010030001', 'Yarn sales ledger', '01003000100001', 'Yarn sales account');
+
+        \App\Models\YarnAccountSetting::current()->update([
+            'yarn_stock_account_id' => $yarnStockAccount->id,
+            'yarn_sales_account_id' => $yarnSalesAccount->id,
+        ]);
 
         $item = \App\Models\Item::query()->create([
             'code' => 'TY001',
@@ -154,6 +161,28 @@ class ErpWorkflowTest extends TestCase
                 ], $lineOverrides),
             ],
         ];
+    }
+
+    /**
+     * Simulates AJAX/form submit where the hidden item_id field is empty but contract is selected.
+     *
+     * @return array<string, mixed>
+     */
+    private function yarnContractWisePayload(\App\Models\YarnContract $contract, string $screen, array $overrides = []): array
+    {
+        return array_merge([
+            'trans_date' => now()->toDateString(),
+            'account_id' => $contract->account_id,
+            'yarn_contract_id' => $contract->id,
+            'from_godown_id' => $contract->godown_id,
+            'item_id' => '',
+            'packing_size' => $contract->packing_size ?: 40,
+            'quantity' => 2,
+            'no_of_cones' => 0,
+            'rate' => $screen === 'sale-contract-wise' ? 150 : 50,
+            'submit_action' => 'post',
+            'meta' => ['voucher_type' => $screen === 'sale-contract-wise' ? 'YSV' : 'YPV'],
+        ], $overrides);
     }
 
     private function createAccountChain(\App\Models\Account $head, string $controlCode, string $controlName, string $ledgerCode, string $ledgerName, string $subLedgerCode, string $subLedgerName): \App\Models\Account
@@ -435,6 +464,96 @@ class ErpWorkflowTest extends TestCase
         $response->assertSessionHasErrors('lines');
     }
 
+    public function test_bank_payment_voucher_rejects_instrument_number_used_on_another_voucher(): void
+    {
+        $admin = \App\Models\User::query()->where('email', 'admin@erp.local')->firstOrFail();
+        $fy = \App\Models\FinancialYear::query()->firstOrFail();
+        $account = \App\Models\Account::query()->postable()->firstOrFail();
+
+        $this->actingAs($admin)->post(route('erp.accounts.vouchers.store', ['voucherType' => 'bpv']), [
+            'voucher_date' => now()->toDateString(),
+            'financial_year_id' => $fy->id,
+            'remarks' => 'First BPV',
+            'lines' => [
+                [
+                    'account_id' => $account->id,
+                    'description' => 'Line 1',
+                    'debit' => 0,
+                    'credit' => 1500,
+                    'meta' => ['instrument_no' => 'CHK-3001'],
+                ],
+            ],
+        ])->assertRedirect();
+
+        $response = $this->from(route('erp.accounts.vouchers.bpv'))
+            ->actingAs($admin)
+            ->post(route('erp.accounts.vouchers.store', ['voucherType' => 'bpv']), [
+                'voucher_date' => now()->addDay()->toDateString(),
+                'financial_year_id' => $fy->id,
+                'remarks' => 'Duplicate instrument on another date',
+                'lines' => [
+                    [
+                        'account_id' => $account->id,
+                        'description' => 'Line 1',
+                        'debit' => 0,
+                        'credit' => 2500,
+                        'meta' => ['instrument_no' => 'CHK-3001'],
+                    ],
+                ],
+            ]);
+
+        $response->assertRedirect(route('erp.accounts.vouchers.bpv'));
+        $response->assertSessionHasErrors('lines');
+    }
+
+    public function test_bank_payment_voucher_update_allows_same_instrument_on_same_voucher(): void
+    {
+        $admin = \App\Models\User::query()->where('email', 'admin@erp.local')->firstOrFail();
+        $fy = \App\Models\FinancialYear::query()->firstOrFail();
+        $account = \App\Models\Account::query()->postable()->firstOrFail();
+
+        $this->actingAs($admin)->post(route('erp.accounts.vouchers.store', ['voucherType' => 'bpv']), [
+            'voucher_date' => now()->toDateString(),
+            'financial_year_id' => $fy->id,
+            'remarks' => 'Editable BPV',
+            'lines' => [
+                [
+                    'account_id' => $account->id,
+                    'description' => 'Line 1',
+                    'debit' => 0,
+                    'credit' => 1800,
+                    'meta' => ['instrument_no' => 'CHK-3101'],
+                ],
+            ],
+        ])->assertRedirect();
+
+        $voucher = \App\Models\Voucher::query()
+            ->where('module', 'accounts')
+            ->where('voucher_type', 'BPV')
+            ->where('remarks', 'Editable BPV')
+            ->firstOrFail();
+
+        $response = $this->actingAs($admin)->patch(route('erp.accounts.vouchers.update', $voucher), [
+            'voucher_date' => now()->addDays(2)->toDateString(),
+            'financial_year_id' => $fy->id,
+            'remarks' => 'Editable BPV updated',
+            'lines' => [
+                [
+                    'account_id' => $account->id,
+                    'description' => 'Line 1 updated',
+                    'debit' => 0,
+                    'credit' => 1900,
+                    'meta' => ['instrument_no' => 'CHK-3101'],
+                ],
+            ],
+        ]);
+
+        $response->assertRedirect();
+        $voucher->refresh();
+        $this->assertSame('Editable BPV updated', $voucher->remarks);
+        $this->assertSame('CHK-3101', $voucher->lines()->firstOrFail()->meta['instrument_no'] ?? null);
+    }
+
     public function test_reports_export_csv_works(): void
     {
         $admin = \App\Models\User::query()->where('email', 'admin@erp.local')->firstOrFail();
@@ -511,6 +630,40 @@ class ErpWorkflowTest extends TestCase
             'meta' => ['voucher_type' => 'YPV'],
         ]);
         $purchase->assertRedirect();
+
+        $fallbackPurchase = $this->actingAs($admin)->post(route('erp.yarn.screen.store', ['screen' => 'purchase-contract-wise']), [
+            'trans_date' => now()->toDateString(),
+            'account_id' => $contract->account_id,
+            'yarn_contract_id' => $contract->id,
+            'from_godown_id' => $contract->godown_id,
+            'packing_size' => $contract->packing_size ?: 40,
+            'quantity' => 3,
+            'no_of_cones' => 0,
+            'rate' => 50,
+            'submit_action' => 'post',
+            'meta' => ['voucher_type' => 'YPV'],
+        ]);
+        $fallbackPurchase->assertRedirect();
+
+        $this->assertDatabaseHas('inventory_transaction_lines', [
+            'item_id' => $item->id,
+            'qty' => 3,
+        ]);
+
+        $saleContract = \App\Models\YarnContract::query()->where('direction', 'sale')->firstOrFail();
+
+        $this->actingAs($admin)->post(route('erp.yarn.screen.store', ['screen' => 'sale-contract-wise']), [
+            'trans_date' => now()->toDateString(),
+            'account_id' => $saleContract->account_id,
+            'yarn_contract_id' => $saleContract->id,
+            'from_godown_id' => $saleContract->godown_id,
+            'packing_size' => $saleContract->packing_size ?: 40,
+            'quantity' => 2,
+            'no_of_cones' => 0,
+            'rate' => 150,
+            'submit_action' => 'post',
+            'meta' => ['voucher_type' => 'YSV'],
+        ])->assertRedirect();
 
         $save = $this->actingAs($admin)->post(route('erp.yarn.screen.store', ['screen' => 'issuance']), array_merge(
             $this->yarnIssuancePayload($contract, $item),
@@ -743,6 +896,89 @@ class ErpWorkflowTest extends TestCase
         $this->assertEqualsWithDelta(700, $snapshot['available_weight_lbs'], 0.001);
     }
 
+    public function test_yarn_purchase_and_sale_without_contract_post_to_ledger_and_stock(): void
+    {
+        $admin = \App\Models\User::query()->where('email', 'admin@erp.local')->firstOrFail();
+        $supplier = \App\Models\Account::query()->where('code', '02001000100001')->firstOrFail();
+        $customer = \App\Models\Account::query()->where('code', '01001000100001')->firstOrFail();
+        $yarnStock = \App\Models\Account::query()->where('code', '01002000100001')->firstOrFail();
+        $item = \App\Models\Item::query()->where('module', 'yarn')->firstOrFail();
+        $godown = \App\Models\Godown::query()->where('module', 'yarn')->firstOrFail();
+
+        $stockBefore = collect(app(\App\Services\YarnStockAvailabilityService::class)->yarnItemsPayload())
+            ->firstWhere('id', $item->id)['available_bags'] ?? 0;
+
+        $this->actingAs($admin)->post(route('erp.yarn.screen.store', ['screen' => 'purchase-without-contract']), [
+            'trans_date' => now()->toDateString(),
+            'account_id' => $supplier->id,
+            'from_godown_id' => $godown->id,
+            'item_id' => $item->id,
+            'packing_size' => 40,
+            'quantity' => 10,
+            'no_of_cones' => 0,
+            'rate' => 100,
+            'submit_action' => 'post',
+            'meta' => ['voucher_type' => 'YPV'],
+        ])->assertRedirect();
+
+        $purchase = \App\Models\InventoryTransaction::query()
+            ->where('screen_slug', 'purchase-without-contract')
+            ->latest('id')
+            ->firstOrFail();
+
+        $this->assertSame('posted', $purchase->status);
+        $this->assertNotEmpty($purchase->meta['voucher_id'] ?? null);
+
+        $purchaseVoucher = \App\Models\Voucher::query()->findOrFail($purchase->meta['voucher_id']);
+        $this->assertSame('posted', $purchaseVoucher->status);
+        $this->assertDatabaseHas('voucher_lines', [
+            'voucher_id' => $purchaseVoucher->id,
+            'account_id' => $yarnStock->id,
+            'debit' => 100000,
+            'credit' => 0,
+        ]);
+        $this->assertDatabaseHas('voucher_lines', [
+            'voucher_id' => $purchaseVoucher->id,
+            'account_id' => $supplier->id,
+            'debit' => 0,
+            'credit' => 100000,
+        ]);
+
+        $stockAfterPurchase = collect(app(\App\Services\YarnStockAvailabilityService::class)->yarnItemsPayload())
+            ->firstWhere('id', $item->id)['available_bags'] ?? 0;
+        $this->assertEqualsWithDelta($stockBefore + 10, $stockAfterPurchase, 0.001);
+
+        $this->actingAs($admin)->post(route('erp.yarn.screen.store', ['screen' => 'sale-without-contract']), [
+            'trans_date' => now()->toDateString(),
+            'account_id' => $customer->id,
+            'from_godown_id' => $godown->id,
+            'item_id' => $item->id,
+            'packing_size' => 40,
+            'quantity' => 4,
+            'no_of_cones' => 0,
+            'rate' => 120,
+            'submit_action' => 'post',
+            'meta' => ['voucher_type' => 'YSV'],
+        ])->assertRedirect();
+
+        $sale = \App\Models\InventoryTransaction::query()
+            ->where('screen_slug', 'sale-without-contract')
+            ->latest('id')
+            ->firstOrFail();
+
+        $this->assertNotEmpty($sale->meta['voucher_id'] ?? null);
+        $this->assertDatabaseHas('voucher_lines', [
+            'voucher_id' => $sale->meta['voucher_id'],
+            'account_id' => $customer->id,
+            'debit' => 48000,
+            'credit' => 0,
+        ]);
+
+        $stockAfterSale = collect(app(\App\Services\YarnStockAvailabilityService::class)->yarnItemsPayload())
+            ->firstWhere('id', $item->id)['available_bags'] ?? 0;
+        $this->assertEqualsWithDelta($stockBefore + 6, $stockAfterSale, 0.001);
+    }
+
     public function test_super_admin_can_soft_delete_voucher_and_it_disappears_from_lists(): void
     {
         $admin = \App\Models\User::query()->where('email', 'admin@erp.local')->firstOrFail();
@@ -934,6 +1170,27 @@ class ErpWorkflowTest extends TestCase
             'credit' => 200,
         ]);
 
+        $bankVoucher = \App\Models\Voucher::query()->create([
+            'module' => 'accounts',
+            'voucher_type' => 'BPV',
+            'voucher_number' => 'BPV-RPT-001',
+            'voucher_date' => now()->toDateString(),
+            'status' => 'posted',
+            'total_debit' => 500,
+            'total_credit' => 500,
+            'total_amount' => 500,
+            'created_by' => $admin->id,
+        ]);
+
+        \App\Models\VoucherLine::query()->create([
+            'voucher_id' => $bankVoucher->id,
+            'account_id' => $account->id,
+            'description' => 'Bank payment',
+            'debit' => 500,
+            'credit' => 0,
+            'meta' => ['instrument_no' => 'SLIP-7788', 'instrument_date' => '06-07-2026'],
+        ]);
+
         $this->actingAs($admin)
             ->get(route('erp.reports.view', [
                 'screen' => 'accounts',
@@ -945,7 +1202,9 @@ class ErpWorkflowTest extends TestCase
             ->assertOk()
             ->assertSee('Account Statement', false)
             ->assertSee('OPENING BALANCE', false)
-            ->assertSee('CP-RPT-001', false);
+            ->assertSee('CP-RPT-001', false)
+            ->assertSee('SLIP-7788', false)
+            ->assertSee('06-07-2026', false);
 
         $this->actingAs($admin)
             ->get(route('erp.reports.view', [
@@ -956,6 +1215,285 @@ class ErpWorkflowTest extends TestCase
             ]))
             ->assertOk()
             ->assertSee('Trial Balance', false);
+    }
+
+    public function test_bank_receipt_voucher_rejects_instrument_number_used_on_another_voucher(): void
+    {
+        $admin = \App\Models\User::query()->where('email', 'admin@erp.local')->firstOrFail();
+        $fy = \App\Models\FinancialYear::query()->firstOrFail();
+        $account = \App\Models\Account::query()->postable()->firstOrFail();
+
+        $this->actingAs($admin)->post(route('erp.accounts.vouchers.store', ['voucherType' => 'brv']), [
+            'voucher_date' => now()->toDateString(),
+            'financial_year_id' => $fy->id,
+            'remarks' => 'First BRV',
+            'lines' => [
+                [
+                    'account_id' => $account->id,
+                    'description' => 'Line 1',
+                    'debit' => 2200,
+                    'credit' => 0,
+                    'meta' => ['instrument_no' => 'BRV-9001'],
+                ],
+            ],
+        ])->assertRedirect();
+
+        $response = $this->from(route('erp.accounts.vouchers.bpv'))
+            ->actingAs($admin)
+            ->post(route('erp.accounts.vouchers.store', ['voucherType' => 'bpv']), [
+                'voucher_date' => now()->addDays(3)->toDateString(),
+                'financial_year_id' => $fy->id,
+                'remarks' => 'BPV reusing BRV instrument',
+                'lines' => [
+                    [
+                        'account_id' => $account->id,
+                        'description' => 'Line 1',
+                        'debit' => 0,
+                        'credit' => 3300,
+                        'meta' => ['instrument_no' => 'BRV-9001'],
+                    ],
+                ],
+            ]);
+
+        $response->assertRedirect(route('erp.accounts.vouchers.bpv'));
+        $response->assertSessionHasErrors('lines');
+    }
+
+    public function test_instrument_number_uniqueness_is_case_insensitive_across_vouchers(): void
+    {
+        $admin = \App\Models\User::query()->where('email', 'admin@erp.local')->firstOrFail();
+        $fy = \App\Models\FinancialYear::query()->firstOrFail();
+        $account = \App\Models\Account::query()->postable()->firstOrFail();
+
+        $this->actingAs($admin)->post(route('erp.accounts.vouchers.store', ['voucherType' => 'bpv']), [
+            'voucher_date' => now()->toDateString(),
+            'financial_year_id' => $fy->id,
+            'remarks' => 'Lowercase instrument',
+            'lines' => [
+                [
+                    'account_id' => $account->id,
+                    'description' => 'Line 1',
+                    'debit' => 0,
+                    'credit' => 1100,
+                    'meta' => ['instrument_no' => 'chk-4001'],
+                ],
+            ],
+        ])->assertRedirect();
+
+        $response = $this->from(route('erp.accounts.vouchers.brv'))
+            ->actingAs($admin)
+            ->post(route('erp.accounts.vouchers.store', ['voucherType' => 'brv']), [
+                'voucher_date' => now()->addWeek()->toDateString(),
+                'financial_year_id' => $fy->id,
+                'remarks' => 'Uppercase duplicate instrument',
+                'lines' => [
+                    [
+                        'account_id' => $account->id,
+                        'description' => 'Line 1',
+                        'debit' => 1400,
+                        'credit' => 0,
+                        'meta' => ['instrument_no' => 'CHK-4001'],
+                    ],
+                ],
+            ]);
+
+        $response->assertRedirect(route('erp.accounts.vouchers.brv'));
+        $response->assertSessionHasErrors('lines');
+    }
+
+    public function test_account_statement_csv_export_includes_instrument_columns(): void
+    {
+        $admin = \App\Models\User::query()->where('email', 'admin@erp.local')->firstOrFail();
+        $account = \App\Models\Account::query()->postable()->firstOrFail();
+        $today = now()->format('d-m-Y');
+
+        $bankVoucher = \App\Models\Voucher::query()->create([
+            'module' => 'accounts',
+            'voucher_type' => 'BPV',
+            'voucher_number' => 'BPV-CSV-001',
+            'voucher_date' => now()->toDateString(),
+            'status' => 'posted',
+            'total_debit' => 750,
+            'total_credit' => 750,
+            'total_amount' => 750,
+            'created_by' => $admin->id,
+        ]);
+
+        \App\Models\VoucherLine::query()->create([
+            'voucher_id' => $bankVoucher->id,
+            'account_id' => $account->id,
+            'description' => 'CSV bank payment',
+            'debit' => 750,
+            'credit' => 0,
+            'meta' => ['instrument_no' => 'CSV-SLIP-99', 'instrument_date' => '01-08-2026'],
+        ]);
+
+        $response = $this->actingAs($admin)->get(route('erp.reports.export', [
+            'screen' => 'accounts',
+            'report' => 'account-statement',
+            'account_id' => $account->id,
+            'from_date' => $today,
+            'to_date' => $today,
+        ]));
+
+        $response->assertOk();
+        $csv = $response->streamedContent();
+        $this->assertStringContainsString('Instrument #', $csv);
+        $this->assertStringContainsString('Inst. Date', $csv);
+        $this->assertStringContainsString('CSV-SLIP-99', $csv);
+        $this->assertStringContainsString('01-08-2026', $csv);
+        $this->assertTrue(strpos($csv, 'Instrument #') < strpos($csv, 'Inst. Date'));
+    }
+
+    public function test_yarn_purchase_contract_wise_merges_item_id_from_contract_when_missing(): void
+    {
+        $admin = \App\Models\User::query()->where('email', 'admin@erp.local')->firstOrFail();
+        $contract = \App\Models\YarnContract::query()->where('direction', 'purchase')->firstOrFail();
+        $item = $contract->item ?? \App\Models\Item::query()->where('module', 'yarn')->firstOrFail();
+        $yarnStock = \App\Models\Account::query()->where('code', '01002000100001')->firstOrFail();
+        $supplier = \App\Models\Account::query()->where('code', '02001000100001')->firstOrFail();
+
+        $response = $this->actingAs($admin)->post(
+            route('erp.yarn.screen.store', ['screen' => 'purchase-contract-wise']),
+            $this->yarnContractWisePayload($contract, 'purchase-contract-wise', ['quantity' => 4, 'rate' => 100]),
+        );
+
+        $response->assertRedirect();
+        $response->assertSessionDoesntHaveErrors(['item_id']);
+
+        $transaction = \App\Models\InventoryTransaction::query()
+            ->where('screen_slug', 'purchase-contract-wise')
+            ->latest('id')
+            ->firstOrFail();
+
+        $this->assertSame('posted', $transaction->status);
+        $this->assertSame($item->id, (int) ($transaction->meta['item_id'] ?? 0));
+        $this->assertDatabaseHas('inventory_transaction_lines', [
+            'inventory_transaction_id' => $transaction->id,
+            'item_id' => $item->id,
+            'qty' => 4,
+        ]);
+
+        $this->assertNotEmpty($transaction->meta['voucher_id'] ?? null);
+        $purchaseVoucher = \App\Models\Voucher::query()->findOrFail($transaction->meta['voucher_id']);
+        $expectedAmount = (float) $transaction->total_amount;
+        $this->assertSame('posted', $purchaseVoucher->status);
+        $this->assertDatabaseHas('voucher_lines', [
+            'voucher_id' => $purchaseVoucher->id,
+            'account_id' => $yarnStock->id,
+            'debit' => $expectedAmount,
+        ]);
+        $this->assertDatabaseHas('voucher_lines', [
+            'voucher_id' => $purchaseVoucher->id,
+            'account_id' => $supplier->id,
+            'credit' => $expectedAmount,
+        ]);
+    }
+
+    public function test_yarn_sale_contract_wise_merges_item_id_from_contract_when_missing(): void
+    {
+        $admin = \App\Models\User::query()->where('email', 'admin@erp.local')->firstOrFail();
+        $contract = \App\Models\YarnContract::query()->where('direction', 'sale')->firstOrFail();
+        $item = $contract->item ?? \App\Models\Item::query()->where('module', 'yarn')->firstOrFail();
+        $customer = \App\Models\Account::query()->where('code', '01001000100001')->firstOrFail();
+        $yarnSales = \App\Models\Account::query()->where('code', '01003000100001')->firstOrFail();
+
+        $response = $this->actingAs($admin)->post(
+            route('erp.yarn.screen.store', ['screen' => 'sale-contract-wise']),
+            $this->yarnContractWisePayload($contract, 'sale-contract-wise', ['quantity' => 5, 'rate' => 150]),
+        );
+
+        $response->assertRedirect();
+        $response->assertSessionDoesntHaveErrors(['item_id']);
+
+        $transaction = \App\Models\InventoryTransaction::query()
+            ->where('screen_slug', 'sale-contract-wise')
+            ->latest('id')
+            ->firstOrFail();
+
+        $this->assertSame('posted', $transaction->status);
+        $this->assertSame($item->id, (int) ($transaction->meta['item_id'] ?? 0));
+        $this->assertDatabaseHas('inventory_transaction_lines', [
+            'inventory_transaction_id' => $transaction->id,
+            'item_id' => $item->id,
+            'qty' => 5,
+        ]);
+
+        $this->assertNotEmpty($transaction->meta['voucher_id'] ?? null);
+        $saleVoucher = \App\Models\Voucher::query()->findOrFail($transaction->meta['voucher_id']);
+        $expectedAmount = (float) $transaction->total_amount;
+        $this->assertSame('posted', $saleVoucher->status);
+        $this->assertDatabaseHas('voucher_lines', [
+            'voucher_id' => $saleVoucher->id,
+            'account_id' => $customer->id,
+            'debit' => $expectedAmount,
+        ]);
+        $this->assertDatabaseHas('voucher_lines', [
+            'voucher_id' => $saleVoucher->id,
+            'account_id' => $yarnSales->id,
+            'credit' => $expectedAmount,
+        ]);
+    }
+
+    public function test_yarn_contract_wise_update_merges_item_id_from_contract_when_missing(): void
+    {
+        $admin = \App\Models\User::query()->where('email', 'admin@erp.local')->firstOrFail();
+        $contract = \App\Models\YarnContract::query()->where('direction', 'purchase')->firstOrFail();
+        $item = $contract->item ?? \App\Models\Item::query()->where('module', 'yarn')->firstOrFail();
+
+        $this->actingAs($admin)->post(
+            route('erp.yarn.screen.store', ['screen' => 'purchase-contract-wise']),
+            $this->yarnContractWisePayload($contract, 'purchase-contract-wise', ['quantity' => 2, 'rate' => 80]),
+        )->assertRedirect();
+
+        $transaction = \App\Models\InventoryTransaction::query()
+            ->where('screen_slug', 'purchase-contract-wise')
+            ->latest('id')
+            ->firstOrFail();
+
+        $response = $this->actingAs($admin)->patch(
+            route('erp.yarn.screen.update', ['screen' => 'purchase-contract-wise', 'transaction' => $transaction]),
+            $this->yarnContractWisePayload($contract, 'purchase-contract-wise', [
+                'quantity' => 6,
+                'rate' => 90,
+                'remarks' => 'Updated without item_id',
+            ]),
+        );
+
+        $response->assertRedirect();
+        $response->assertSessionDoesntHaveErrors(['item_id']);
+
+        $transaction->refresh();
+        $this->assertSame('Updated without item_id', $transaction->remarks);
+        $this->assertDatabaseHas('inventory_transaction_lines', [
+            'inventory_transaction_id' => $transaction->id,
+            'item_id' => $item->id,
+            'qty' => 6,
+        ]);
+    }
+
+    public function test_yarn_contract_wise_rejects_save_when_contract_missing_and_item_id_empty(): void
+    {
+        $admin = \App\Models\User::query()->where('email', 'admin@erp.local')->firstOrFail();
+        $contract = \App\Models\YarnContract::query()->where('direction', 'sale')->firstOrFail();
+
+        $response = $this->from(route('erp.yarn.screen', ['screen' => 'sale-contract-wise']))
+            ->actingAs($admin)
+            ->post(route('erp.yarn.screen.store', ['screen' => 'sale-contract-wise']), [
+                'trans_date' => now()->toDateString(),
+                'account_id' => $contract->account_id,
+                'from_godown_id' => $contract->godown_id,
+                'item_id' => '',
+                'packing_size' => 40,
+                'quantity' => 2,
+                'no_of_cones' => 0,
+                'rate' => 150,
+                'submit_action' => 'post',
+                'meta' => ['voucher_type' => 'YSV'],
+            ]);
+
+        $response->assertRedirect(route('erp.yarn.screen', ['screen' => 'sale-contract-wise']));
+        $response->assertSessionHasErrors(['yarn_contract_id', 'item_id']);
     }
 }
 

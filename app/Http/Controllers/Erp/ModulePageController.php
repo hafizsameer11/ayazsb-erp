@@ -848,6 +848,7 @@ class ModulePageController extends Controller
     private function storeYarnContractWise(Request $request, string $screen, VoucherNumberService $numberService, YarnContractCalculationService $calculator): RedirectResponse|JsonResponse
     {
         $this->normalizeErpDates($request, ['trans_date']);
+        $this->mergeContractWiseItemId($request);
         $data = $request->validate($this->yarnContractWiseValidationRules());
         $contract = YarnContract::query()->with('item')->findOrFail($data['yarn_contract_id']);
 
@@ -923,6 +924,10 @@ class ModulePageController extends Controller
             return $transaction;
         });
 
+        if ($postOnSubmit) {
+            app(PostingService::class)->postInventoryTransaction($transaction);
+        }
+
         return $this->jsonOrRedirect(
             $request,
             back(),
@@ -933,6 +938,7 @@ class ModulePageController extends Controller
     private function updateYarnContractWise(Request $request, string $screen, InventoryTransaction $transaction, YarnContractCalculationService $calculator): RedirectResponse|JsonResponse
     {
         $this->normalizeErpDates($request, ['trans_date']);
+        $this->mergeContractWiseItemId($request);
         $data = $request->validate($this->yarnContractWiseValidationRules());
         $contract = YarnContract::query()->with('item')->findOrFail($data['yarn_contract_id']);
 
@@ -995,6 +1001,10 @@ class ModulePageController extends Controller
             ]);
         });
 
+        if ($postOnSubmit || $transaction->fresh()->status === 'posted') {
+            app(PostingService::class)->postInventoryTransaction($transaction->fresh(['lines.item', 'account']));
+        }
+
         return $this->jsonOrRedirect(
             $request,
             redirect()->route('erp.yarn.screen', array_merge(['screen' => $screen], $this->historyQuery($request))),
@@ -1056,6 +1066,27 @@ class ModulePageController extends Controller
             'meta.vehicle_no' => ['nullable', 'string', 'max:80'],
             'meta.driver_name' => ['nullable', 'string', 'max:120'],
         ];
+    }
+
+    private function mergeContractWiseItemId(Request $request): void
+    {
+        $itemId = (int) $request->input('item_id', 0);
+        if ($itemId > 0 || ! $request->filled('yarn_contract_id')) {
+            return;
+        }
+
+        $contractItemId = (int) YarnContract::query()
+            ->whereKey($request->input('yarn_contract_id'))
+            ->value('item_id');
+
+        if ($contractItemId > 0) {
+            $request->merge([
+                'item_id' => $contractItemId,
+                'lines' => array_replace_recursive($request->input('lines', []), [
+                    0 => ['item_id' => $contractItemId],
+                ]),
+            ]);
+        }
     }
 
     /**
@@ -1378,6 +1409,14 @@ class ModulePageController extends Controller
             'brokery_percent' => $data['brokery_percent'] ?? 0,
         ]);
 
+        if ($screen === 'sale-without-contract') {
+            $this->validateYarnStockForLines([[
+                'item_id' => $data['item_id'],
+                'weight_lbs' => $totals['weight_lbs'],
+                'qty' => $data['quantity'],
+            ]]);
+        }
+
         $voucherType = $screen === 'sale-without-contract' ? 'YSV' : 'YPV';
         $meta = array_merge($data['meta'] ?? [], [
             'voucher_type' => $data['meta']['voucher_type'] ?? $voucherType,
@@ -1434,6 +1473,10 @@ class ModulePageController extends Controller
             return $transaction;
         });
 
+        if ($postOnSubmit) {
+            app(PostingService::class)->postInventoryTransaction($transaction);
+        }
+
         return $this->jsonOrRedirect($request, back(), "Transaction {$transaction->trans_no} " . ($postOnSubmit ? 'posted.' : 'saved.'));
     }
 
@@ -1458,6 +1501,14 @@ class ModulePageController extends Controller
             'commission_percent' => $data['commission_percent'] ?? 0,
             'brokery_percent' => $data['brokery_percent'] ?? 0,
         ]);
+
+        if ($screen === 'sale-without-contract') {
+            $this->validateYarnStockForLines([[
+                'item_id' => $data['item_id'],
+                'weight_lbs' => $totals['weight_lbs'],
+                'qty' => $data['quantity'],
+            ]]);
+        }
 
         $meta = array_merge($transaction->meta ?? [], $data['meta'] ?? [], [
             'item_id' => $data['item_id'],
@@ -1503,6 +1554,10 @@ class ModulePageController extends Controller
                 'meta' => ['no_of_cones' => $data['no_of_cones'] ?? 0, 'yarn_type' => $data['yarn_type'] ?? 'any'],
             ]);
         });
+
+        if ($postOnSubmit || $transaction->fresh()->status === 'posted') {
+            app(PostingService::class)->postInventoryTransaction($transaction->fresh(['lines.item', 'account']));
+        }
 
         return $this->jsonOrRedirect(
             $request,

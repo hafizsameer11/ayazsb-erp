@@ -171,7 +171,7 @@ class ReportController extends Controller
                 'title' => 'Account Statement',
                 'view' => 'erp.reports.accounts-statement',
                 'print_view' => 'erp.reports.partials.accounts-statement-table',
-                'csv_headers' => ['Date', 'Type', 'Voucher #', 'Narration', 'Debit', 'Credit', 'Balance', 'Dr/Cr', 'Cost Center'],
+                'csv_headers' => ['Instrument #', 'Date', 'Type', 'Voucher #', 'Inst. Date', 'Narration', 'Debit', 'Credit', 'Balance', 'Dr/Cr', 'Cost Center'],
                 'csv_rows' => [],
                 'data' => [
                     'statement' => null,
@@ -190,11 +190,13 @@ class ReportController extends Controller
             'title' => 'Account Statement',
             'view' => 'erp.reports.accounts-statement',
             'print_view' => 'erp.reports.partials.accounts-statement-table',
-            'csv_headers' => ['Date', 'Type', 'Voucher #', 'Narration', 'Debit', 'Credit', 'Balance', 'Dr/Cr', 'Cost Center'],
+            'csv_headers' => ['Instrument #', 'Date', 'Type', 'Voucher #', 'Inst. Date', 'Narration', 'Debit', 'Credit', 'Balance', 'Dr/Cr', 'Cost Center'],
             'csv_rows' => collect($statement['rows'])->map(static fn (array $row): array => [
+                $row['instrument_no'] ?? '',
                 $row['date'],
                 $row['type'],
                 $row['voucher_no'],
+                $row['instrument_date'] ?? '',
                 $row['narration'],
                 $row['debit'],
                 $row['credit'],

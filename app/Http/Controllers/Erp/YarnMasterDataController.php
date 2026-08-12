@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Erp;
 
 use App\Http\Controllers\Controller;
+use App\Models\Account;
 use App\Models\Godown;
 use App\Models\Item;
+use App\Models\YarnAccountSetting;
 use App\Models\YarnBlend;
 use App\Models\YarnBrand;
 use App\Models\YarnCount;
@@ -29,9 +31,11 @@ class YarnMasterDataController extends Controller
     abort_unless($this->allowed('view'), 403);
 
     $tab = $request->query('tab', 'master');
-    if (! in_array($tab, ['master', 'items', 'godowns'], true)) {
+    if (! in_array($tab, ['master', 'items', 'godowns', 'account-settings'], true)) {
       $tab = 'master';
     }
+
+    $accountParties = Account::query()->postable()->orderBy('code')->get(['id', 'code', 'name']);
 
     return view('erp.yarn.master-data', [
       'activeModule' => 'yarn',
@@ -60,6 +64,8 @@ class YarnMasterDataController extends Controller
         ->whereIn('module', ['yarn', 'shared'])
         ->orderBy('id')
         ->get(),
+      'accountSettings' => YarnAccountSetting::current(),
+      'accountParties' => $accountParties,
       'itemTypes' => self::ITEM_TYPES,
       'weightUnits' => self::WEIGHT_UNITS,
     ]);
@@ -109,8 +115,21 @@ class YarnMasterDataController extends Controller
       'godowns.*.id' => ['nullable', 'integer'],
       'godowns.*.name' => ['nullable', 'string', 'max:120'],
       'godowns.*.is_active' => ['nullable', 'boolean'],
-      'tab' => ['nullable', 'string', Rule::in(['master', 'items', 'godowns'])],
+      'tab' => ['nullable', 'string', Rule::in(['master', 'items', 'godowns', 'account-settings'])],
+      'yarn_stock_account_id' => ['nullable', 'integer', Rule::exists('accounts', 'id')->where(fn ($q) => $q->where('level', 'sub_ledger')->where('is_active', true))],
+      'yarn_sales_account_id' => ['nullable', 'integer', Rule::exists('accounts', 'id')->where(fn ($q) => $q->where('level', 'sub_ledger')->where('is_active', true))],
     ]);
+
+    if (($data['tab'] ?? 'master') === 'account-settings') {
+      YarnAccountSetting::current()->update([
+        'yarn_stock_account_id' => $data['yarn_stock_account_id'] ?? null,
+        'yarn_sales_account_id' => $data['yarn_sales_account_id'] ?? null,
+      ]);
+
+      return redirect()
+        ->route('erp.yarn.master-data', ['tab' => 'account-settings'])
+        ->with('status', 'Yarn account mapping saved.');
+    }
 
     DB::transaction(function () use ($data, $nameBuilder): void {
       $this->syncLookupRows(YarnCount::class, 'count', $data['counts'] ?? []);
