@@ -107,340 +107,342 @@
         @apply mb-1 min-h-[1.75rem] rounded-none border-0 px-1.5 py-0.5 text-[12px] ring-1 ring-inset ring-slate-400 focus:ring-2 focus:ring-sky-600;
     }
 
-    /* Contract-wise UI mode toggle (classic default chrome) */
-    .erp-cw-header-row {
-        @apply flex flex-wrap items-center justify-between gap-2;
-    }
-
-    .erp-ui-mode-toggle {
-        @apply inline-flex items-center gap-1 rounded border border-slate-400 bg-white p-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600;
-    }
-
-    .erp-ui-mode-label {
-        @apply px-1.5 text-slate-500;
-    }
-
-    .erp-ui-mode-btn {
-        @apply rounded px-2 py-0.5 text-slate-600 transition hover:bg-slate-100;
-    }
-
-    .erp-ui-mode-btn.is-active {
-        @apply bg-slate-700 text-white hover:bg-slate-700;
-    }
-
-    /* Classic: flatten sections so fields use the legacy dense 4-col grid */
-    .erp-contract-wise-panel:not(.erp-ui-modern) .erp-cw-section-title {
-        @apply sr-only;
-    }
-
-    .erp-contract-wise-panel:not(.erp-ui-modern) .erp-cw-section,
-    .erp-contract-wise-panel:not(.erp-ui-modern) .erp-cw-section-grid {
-        @apply contents;
-    }
-
     /*
-     * Modern UI — one aligned sheet, 12-col grid, no stacked sparse cards.
+     * Yarn contract-wise — always-on modern UI (sale + purchase).
+     * Dark header, orange accent, 12-col sheet. No classic mode.
      */
-    .erp-contract-wise-panel.erp-ui-modern {
-        --erp-m-ink: #132033;
-        --erp-m-muted: #5b6b7c;
-        --erp-m-line: #d7e0ea;
-        --erp-m-soft: #f4f7fa;
-        --erp-m-accent: #1f6f8b;
-        --erp-m-accent-deep: #155a72;
-        --erp-m-readonly: #eef2f6;
-        border: 1px solid #c8d4e0;
-        border-radius: 0.5rem;
-        background: #fff;
-        box-shadow: 0 8px 24px rgba(19, 32, 51, 0.08);
-        overflow: hidden;
+    .erp-contract-wise-panel {
+        --cw-ink: #101828;
+        --cw-muted: #667085;
+        --cw-line: #e4e7ec;
+        --cw-soft: #f9fafb;
+        --cw-accent: #f97316;
+        --cw-accent-deep: #ea580c;
+        --cw-dark: #0b1220;
+        --cw-readonly: #f2f4f7;
+        border: 0;
+        border-radius: 1.1rem;
+        background: transparent;
+        box-shadow: none;
+        overflow: visible;
+        color: var(--cw-ink);
     }
 
-    .erp-contract-wise-panel.erp-ui-modern .erp-cw-header {
-        border-bottom: 1px solid var(--erp-m-line);
-        background: #fff;
-        padding: 0.7rem 1rem;
-        color: var(--erp-m-ink);
-        font-size: 0.95rem;
-        font-weight: 700;
-        letter-spacing: -0.015em;
+    .erp-contract-wise-panel .erp-cw-header {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 0.85rem;
+        margin-bottom: 0.85rem;
+        padding: 1.15rem 1.25rem;
+        border-radius: 1.1rem;
+        background:
+            radial-gradient(120% 140% at 100% 0%, rgba(249, 115, 22, 0.28), transparent 42%),
+            linear-gradient(135deg, #0b1220 0%, #1a2740 55%, #243552 100%);
+        color: #fff;
+        box-shadow: 0 18px 40px rgba(11, 18, 32, 0.28);
     }
 
-    .erp-contract-wise-panel.erp-ui-modern .erp-cw-title::before {
-        content: '';
-        display: inline-block;
-        width: 0.35rem;
-        height: 1rem;
-        margin-right: 0.55rem;
-        border-radius: 999px;
-        background: var(--erp-m-accent);
-        vertical-align: -0.12rem;
-    }
-
-    .erp-contract-wise-panel.erp-ui-modern .erp-ui-mode-toggle {
-        border: 1px solid var(--erp-m-line);
-        border-radius: 0.35rem;
-        background: var(--erp-m-soft);
-        text-transform: none;
-        letter-spacing: 0;
+    .erp-contract-wise-panel .erp-cw-kicker {
+        margin: 0 0 0.2rem;
         font-size: 0.72rem;
-        padding: 0.12rem;
-        gap: 0.15rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: #fdba74;
     }
 
-    .erp-contract-wise-panel.erp-ui-modern .erp-ui-mode-label {
-        display: none;
-    }
-
-    .erp-contract-wise-panel.erp-ui-modern .erp-ui-mode-btn {
-        border-radius: 0.25rem;
-        padding: 0.28rem 0.65rem;
-        text-transform: none;
-        color: var(--erp-m-muted);
-    }
-
-    .erp-contract-wise-panel.erp-ui-modern .erp-ui-mode-btn.is-active {
-        background: var(--erp-m-accent);
+    .erp-contract-wise-panel .erp-cw-title {
+        margin: 0;
+        font-size: 1.35rem;
+        font-weight: 750;
+        letter-spacing: -0.03em;
+        line-height: 1.15;
         color: #fff;
     }
 
-    .erp-contract-wise-panel.erp-ui-modern .erp-cw-form {
-        background: linear-gradient(180deg, #e9eef3 0%, #dfe7ee 100%);
-        padding: 0.85rem;
-        gap: 0.7rem;
+    .erp-contract-wise-panel .erp-cw-header-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.45rem;
     }
 
-    .erp-contract-wise-panel.erp-ui-modern .erp-cw-body {
+    .erp-contract-wise-panel .erp-cw-chip {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
+        background: var(--cw-accent);
+        color: #111827;
+        padding: 0.28rem 0.7rem;
+        font-size: 0.72rem;
+        font-weight: 750;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+    }
+
+    .erp-contract-wise-panel .erp-cw-chip--soft {
+        background: rgba(255, 255, 255, 0.12);
+        color: #fff;
+        border: 1px solid rgba(255, 255, 255, 0.18);
+    }
+
+    .erp-contract-wise-panel .erp-cw-form {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        padding: 0;
+        background: transparent;
+    }
+
+    .erp-contract-wise-panel .erp-cw-body {
         display: flex;
         flex-direction: column;
         gap: 0;
-        border: 1px solid var(--erp-m-line);
-        border-radius: 0.45rem;
+        border: 1px solid var(--cw-line);
+        border-radius: 1rem;
         background: #fff;
-        padding: 0;
+        box-shadow: 0 10px 30px rgba(16, 24, 40, 0.06);
         overflow: hidden;
     }
 
-    .erp-contract-wise-panel.erp-ui-modern .erp-cw-section {
-        display: block;
-        border: 0;
-        border-bottom: 1px solid var(--erp-m-line);
-        border-radius: 0;
-        background: transparent;
-        padding: 0.85rem 1rem;
-        box-shadow: none;
-        animation: none;
+    .erp-contract-wise-panel .erp-cw-section {
+        padding: 1rem 1.15rem 1.1rem;
+        border-bottom: 1px solid var(--cw-line);
     }
 
-    .erp-contract-wise-panel.erp-ui-modern .erp-cw-section:last-child {
+    .erp-contract-wise-panel .erp-cw-section:last-child {
         border-bottom: 0;
     }
 
-    .erp-contract-wise-panel.erp-ui-modern .erp-cw-section-title {
-        display: flex;
-        align-items: center;
-        gap: 0.45rem;
-        margin: 0 0 0.65rem;
-        font-size: 0.7rem;
-        font-weight: 700;
-        letter-spacing: 0.08em;
+    .erp-contract-wise-panel .erp-cw-section--voucher {
+        background: linear-gradient(180deg, #fff7ed 0%, #ffffff 70%);
+    }
+
+    .erp-contract-wise-panel .erp-cw-section--totals {
+        background: var(--cw-dark);
+        color: #fff;
+    }
+
+    .erp-contract-wise-panel .erp-cw-section-title {
+        margin: 0 0 0.75rem;
+        font-size: 0.78rem;
+        font-weight: 750;
+        letter-spacing: 0.04em;
         text-transform: uppercase;
-        color: var(--erp-m-accent);
+        color: #98a2b3;
     }
 
-    .erp-contract-wise-panel.erp-ui-modern .erp-cw-section-title::after {
-        content: '';
-        flex: 1;
-        height: 1px;
-        background: var(--erp-m-line);
+    .erp-contract-wise-panel .erp-cw-section--totals .erp-cw-section-title {
+        color: #fdba74;
     }
 
-    .erp-contract-wise-panel.erp-ui-modern .erp-cw-section-grid {
+    .erp-contract-wise-panel .erp-cw-section-grid {
         display: grid;
         grid-template-columns: repeat(12, minmax(0, 1fr));
-        gap: 0.55rem 0.65rem;
+        gap: 0.7rem 0.75rem;
     }
 
-    .erp-contract-wise-panel.erp-ui-modern .erp-span-2 { grid-column: span 2; }
-    .erp-contract-wise-panel.erp-ui-modern .erp-span-3 { grid-column: span 3; }
-    .erp-contract-wise-panel.erp-ui-modern .erp-span-4 { grid-column: span 4; }
-    .erp-contract-wise-panel.erp-ui-modern .erp-span-5 { grid-column: span 5; }
-    .erp-contract-wise-panel.erp-ui-modern .erp-span-6 { grid-column: span 6; }
-    .erp-contract-wise-panel.erp-ui-modern .erp-span-8 { grid-column: span 8; }
-    .erp-contract-wise-panel.erp-ui-modern .erp-span-12 { grid-column: span 12; }
+    .erp-contract-wise-panel .erp-span-2 { grid-column: span 2; }
+    .erp-contract-wise-panel .erp-span-3 { grid-column: span 3; }
+    .erp-contract-wise-panel .erp-span-4 { grid-column: span 4; }
+    .erp-contract-wise-panel .erp-span-5 { grid-column: span 5; }
+    .erp-contract-wise-panel .erp-span-6 { grid-column: span 6; }
+    .erp-contract-wise-panel .erp-span-8 { grid-column: span 8; }
+    .erp-contract-wise-panel .erp-span-12 { grid-column: span 12; }
 
-    @media (max-width: 900px) {
-        .erp-contract-wise-panel.erp-ui-modern .erp-cw-section-grid {
+    @media (max-width: 960px) {
+        .erp-contract-wise-panel .erp-cw-section-grid {
             grid-template-columns: repeat(6, minmax(0, 1fr));
         }
 
-        .erp-contract-wise-panel.erp-ui-modern .erp-span-2,
-        .erp-contract-wise-panel.erp-ui-modern .erp-span-3 {
+        .erp-contract-wise-panel .erp-span-2,
+        .erp-contract-wise-panel .erp-span-3 {
             grid-column: span 3;
         }
 
-        .erp-contract-wise-panel.erp-ui-modern .erp-span-4,
-        .erp-contract-wise-panel.erp-ui-modern .erp-span-5,
-        .erp-contract-wise-panel.erp-ui-modern .erp-span-6,
-        .erp-contract-wise-panel.erp-ui-modern .erp-span-8 {
+        .erp-contract-wise-panel .erp-span-4,
+        .erp-contract-wise-panel .erp-span-5,
+        .erp-contract-wise-panel .erp-span-6,
+        .erp-contract-wise-panel .erp-span-8 {
             grid-column: span 6;
         }
     }
 
     @media (max-width: 640px) {
-        .erp-contract-wise-panel.erp-ui-modern .erp-cw-section-grid {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
+        .erp-contract-wise-panel .erp-cw-section-grid {
+            grid-template-columns: 1fr 1fr;
         }
 
-        .erp-contract-wise-panel.erp-ui-modern .erp-span-2,
-        .erp-contract-wise-panel.erp-ui-modern .erp-span-3,
-        .erp-contract-wise-panel.erp-ui-modern .erp-span-4,
-        .erp-contract-wise-panel.erp-ui-modern .erp-span-5,
-        .erp-contract-wise-panel.erp-ui-modern .erp-span-6,
-        .erp-contract-wise-panel.erp-ui-modern .erp-span-8 {
+        .erp-contract-wise-panel .erp-span-2,
+        .erp-contract-wise-panel .erp-span-3,
+        .erp-contract-wise-panel .erp-span-4,
+        .erp-contract-wise-panel .erp-span-5,
+        .erp-contract-wise-panel .erp-span-6,
+        .erp-contract-wise-panel .erp-span-8 {
             grid-column: span 2;
         }
     }
 
-    .erp-contract-wise-panel.erp-ui-modern .erp-field {
-        gap: 0.28rem;
+    .erp-contract-wise-panel .erp-field {
+        gap: 0.3rem;
         min-width: 0;
     }
 
-    .erp-contract-wise-panel.erp-ui-modern .erp-label {
-        font-size: 0.7rem;
+    .erp-contract-wise-panel .erp-label {
+        font-size: 0.74rem;
         font-weight: 650;
-        letter-spacing: 0.01em;
+        letter-spacing: 0;
         text-transform: none;
-        color: var(--erp-m-muted);
+        color: var(--cw-muted);
     }
 
-    .erp-contract-wise-panel.erp-ui-modern .erp-input,
-    .erp-contract-wise-panel.erp-ui-modern .erp-date-picker {
-        min-height: 2.15rem;
-        border-radius: 0.3rem;
-        border: 1px solid #c5d0db;
+    .erp-contract-wise-panel .erp-cw-section--totals .erp-label {
+        color: #98a2b3;
+    }
+
+    .erp-contract-wise-panel .erp-input,
+    .erp-contract-wise-panel .erp-date-picker {
+        min-height: 2.4rem;
+        border-radius: 0.7rem;
+        border: 1px solid #d0d5dd;
         background: #fff;
-        padding: 0.35rem 0.55rem;
-        font-size: 0.82rem;
-        color: var(--erp-m-ink);
-        box-shadow: none;
+        padding: 0.45rem 0.75rem;
+        font-size: 0.88rem;
+        color: var(--cw-ink);
+        box-shadow: 0 1px 0 rgba(16, 24, 40, 0.02);
         outline: none;
         --tw-ring-shadow: 0 0 #0000;
-        transition: border-color 120ms ease, box-shadow 120ms ease;
+        transition: border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
     }
 
-    .erp-contract-wise-panel.erp-ui-modern .erp-input:focus,
-    .erp-contract-wise-panel.erp-ui-modern .erp-date-picker:focus {
-        border-color: var(--erp-m-accent);
-        box-shadow: 0 0 0 2px rgba(31, 111, 139, 0.16);
+    .erp-contract-wise-panel .erp-input:hover,
+    .erp-contract-wise-panel .erp-date-picker:hover {
+        border-color: #98a2b3;
+    }
+
+    .erp-contract-wise-panel .erp-input:focus,
+    .erp-contract-wise-panel .erp-date-picker:focus {
+        border-color: var(--cw-accent);
+        box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.18);
         --tw-ring-shadow: 0 0 #0000;
     }
 
-    .erp-contract-wise-panel.erp-ui-modern .erp-input[readonly],
-    .erp-contract-wise-panel.erp-ui-modern .erp-input:disabled,
-    .erp-contract-wise-panel.erp-ui-modern select.erp-input:disabled {
-        background: var(--erp-m-readonly);
-        color: #3d4d5f;
-        border-color: #d5dee7;
+    .erp-contract-wise-panel .erp-input[readonly],
+    .erp-contract-wise-panel .erp-input:disabled,
+    .erp-contract-wise-panel select.erp-input:disabled {
+        background: var(--cw-readonly);
+        color: #475467;
+        border-color: #e4e7ec;
         cursor: default;
     }
 
-    .erp-contract-wise-panel.erp-ui-modern .ts-wrapper.js-account-search {
-        min-height: 2.15rem !important;
+    .erp-contract-wise-panel .erp-cw-section--totals .erp-input,
+    .erp-contract-wise-panel .erp-cw-section--totals .erp-input[readonly] {
+        background: rgba(255, 255, 255, 0.06);
+        border-color: rgba(255, 255, 255, 0.12);
+        color: #fff;
     }
 
-    .erp-contract-wise-panel.erp-ui-modern .ts-wrapper.js-account-search.single .ts-control {
-        min-height: 2.15rem;
-        border-radius: 0.3rem;
-        border: 1px solid #c5d0db;
-        padding: 0.3rem 0.55rem;
-        font-size: 0.82rem;
+    .erp-contract-wise-panel .ts-wrapper.js-account-search {
+        min-height: 2.4rem !important;
+    }
+
+    .erp-contract-wise-panel .ts-wrapper.js-account-search.single .ts-control {
+        min-height: 2.4rem;
+        border-radius: 0.7rem;
+        border: 1px solid #d0d5dd;
+        padding: 0.4rem 0.75rem;
+        font-size: 0.88rem;
         box-shadow: none;
         --tw-ring-shadow: 0 0 #0000;
     }
 
-    .erp-contract-wise-panel.erp-ui-modern .ts-wrapper.js-account-search.single.focus .ts-control {
-        border-color: var(--erp-m-accent);
-        box-shadow: 0 0 0 2px rgba(31, 111, 139, 0.16);
+    .erp-contract-wise-panel .ts-wrapper.js-account-search.single.focus .ts-control {
+        border-color: var(--cw-accent);
+        box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.18);
         --tw-ring-shadow: 0 0 #0000;
     }
 
-    .erp-contract-wise-panel.erp-ui-modern .ts-dropdown.js-account-search,
-    .erp-contract-wise-panel.erp-ui-modern .ts-wrapper.js-account-search .ts-dropdown {
-        border-radius: 0.35rem;
-        border-color: var(--erp-m-line);
-        box-shadow: 0 10px 24px rgba(19, 32, 51, 0.12);
+    .erp-contract-wise-panel .ts-dropdown.js-account-search,
+    .erp-contract-wise-panel .ts-wrapper.js-account-search .ts-dropdown {
+        border-radius: 0.75rem;
+        border-color: var(--cw-line);
+        box-shadow: 0 16px 36px rgba(16, 24, 40, 0.14);
+        overflow: hidden;
     }
 
-    .erp-contract-wise-panel.erp-ui-modern .erp-cw-section--voucher {
-        background: var(--erp-m-soft);
-    }
-
-    .erp-contract-wise-panel.erp-ui-modern .erp-cw-section--totals {
-        background: #f0f6f9;
-    }
-
-    .erp-contract-wise-panel.erp-ui-modern .erp-cw-totals-grid {
-        align-items: end;
-    }
-
-    .erp-contract-wise-panel.erp-ui-modern .erp-cw-net .erp-label {
-        color: var(--erp-m-accent-deep);
-        font-weight: 700;
-    }
-
-    .erp-contract-wise-panel.erp-ui-modern .erp-cw-net .erp-input {
-        min-height: 2.55rem;
-        border-color: #8eb9cb;
-        background: #dff0f7;
-        font-size: 1.05rem;
+    .erp-contract-wise-panel .erp-cw-net .erp-label {
+        color: #fdba74;
         font-weight: 750;
-        color: var(--erp-m-accent-deep);
     }
 
-    .erp-contract-wise-panel.erp-ui-modern .erp-cw-actions {
+    .erp-contract-wise-panel .erp-cw-net .erp-input {
+        min-height: 2.7rem;
+        border-color: rgba(249, 115, 22, 0.55) !important;
+        background: rgba(249, 115, 22, 0.18) !important;
+        font-size: 1.12rem;
+        font-weight: 800;
+        color: #ffedd5 !important;
+    }
+
+    .erp-contract-wise-panel .erp-cw-actions {
         display: flex;
         align-items: center;
         justify-content: flex-end;
-        gap: 0.55rem;
-        border: 1px solid var(--erp-m-line);
-        border-radius: 0.45rem;
+        gap: 0.65rem;
+        padding: 0.85rem 1rem;
+        border: 1px solid var(--cw-line);
+        border-radius: 1rem;
         background: #fff;
-        padding: 0.65rem 0.85rem;
+        box-shadow: 0 8px 22px rgba(16, 24, 40, 0.05);
     }
 
-    .erp-contract-wise-panel.erp-ui-modern .erp-cw-btn-primary {
+    .erp-contract-wise-panel .erp-cw-btn-primary {
         border: 0;
-        border-radius: 0.35rem;
-        background: var(--erp-m-accent);
+        border-radius: 0.8rem;
+        background: linear-gradient(180deg, #fb923c 0%, var(--cw-accent-deep) 100%);
         color: #fff;
-        padding: 0.55rem 1.35rem;
-        font-size: 0.84rem;
-        font-weight: 700;
-        box-shadow: none;
-        transition: background 120ms ease;
+        padding: 0.7rem 1.4rem;
+        font-size: 0.9rem;
+        font-weight: 750;
+        box-shadow: 0 10px 20px rgba(234, 88, 12, 0.28);
+        transition: transform 120ms ease, filter 120ms ease;
     }
 
-    .erp-contract-wise-panel.erp-ui-modern .erp-cw-btn-primary:hover {
-        background: var(--erp-m-accent-deep);
-        transform: none;
-        box-shadow: none;
+    .erp-contract-wise-panel .erp-cw-btn-primary:hover {
+        filter: brightness(1.05);
+        transform: translateY(-1px);
     }
 
-    .erp-contract-wise-panel.erp-ui-modern .erp-cw-btn-secondary {
-        border: 1px solid #b7c5d3;
-        border-radius: 0.35rem;
+    .erp-contract-wise-panel .erp-cw-btn-secondary {
+        border: 1px solid #d0d5dd;
+        border-radius: 0.8rem;
         background: #fff;
-        color: #334155;
-        padding: 0.55rem 1.1rem;
-        font-size: 0.84rem;
+        color: #344054;
+        padding: 0.7rem 1.15rem;
+        font-size: 0.88rem;
         font-weight: 650;
         transition: background 120ms ease, border-color 120ms ease;
     }
 
-    .erp-contract-wise-panel.erp-ui-modern .erp-cw-btn-secondary:hover {
-        background: var(--erp-m-soft);
-        border-color: #8fa3b6;
+    .erp-contract-wise-panel .erp-cw-btn-secondary:hover {
+        background: var(--cw-soft);
+        border-color: #98a2b3;
+    }
+
+    .erp-contract-wise-panel .erp-cw-history {
+        margin-top: 0.85rem;
+        border: 1px solid var(--cw-line);
+        border-radius: 1rem;
+        background: #fff;
+        overflow: hidden;
+        box-shadow: 0 8px 22px rgba(16, 24, 40, 0.05);
+    }
+
+    .erp-contract-wise-panel .erp-cw-history > * {
+        border: 0 !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
     }
 }
